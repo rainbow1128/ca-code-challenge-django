@@ -13,8 +13,8 @@ from decimal import Decimal
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Avg, Count, DecimalField
-from django.db.models.functions import Cast
+from django.db.models import Avg, Count, DecimalField, IntegerField, OuterRef, Subquery
+from django.db.models.functions import Cast, Coalesce
 
 
 class WordPressSourced(models.Model):
@@ -49,14 +49,54 @@ class BrandQuerySet(models.QuerySet):
         Ratings are always derived, never stored, so they can't drift from the
         reviews. ``average_rating`` is a Decimal with 2 places (NULL when the
         brand has no reviews).
+
+        Correlated subqueries rather than a JOIN + GROUP BY: the main query
+        keeps one row per brand, and when the annotations aren't used (e.g.
+        the paginator's COUNT) Django leaves them out of the SQL entirely.
         """
+        per_brand = Review.objects.filter(brand=OuterRef("pk")).order_by().values("brand")
         return self.annotate(
-            review_count=Count("reviews"),
-            average_rating=Cast(
-                Avg("reviews__rating"),
-                DecimalField(max_digits=3, decimal_places=2),
+            review_count=Coalesce(
+                Subquery(per_brand.annotate(n=Count("id")).values("n"), output_field=IntegerField()),
+                0,
+            ),
+            average_rating=Subquery(
+                per_brand.annotate(
+                    avg=Cast(Avg("rating"), DecimalField(max_digits=3, decimal_places=2))
+                ).values("avg"),
+                output_field=DecimalField(max_digits=3, decimal_places=2),
             ),
         )
+
+    def with_top_review(self):
+        """Prefetch each brand's top review in one extra query (any number of brands).
+
+        Uses Postgres DISTINCT ON (brand_id): one row per brand, the first by
+        TOP_REVIEW_ORDER. Read it with ``brand.top_review``.
+        """
+        top_reviews = (
+            Review.objects.select_related("reviewer")
+            .order_by("brand_id", *TOP_REVIEW_ORDER)
+            .distinct("brand_id")
+        )
+        return self.prefetch_related(
+            models.Prefetch("reviews", queryset=top_reviews, to_attr="_top_reviews")
+        )
+
+    def for_cards(self):
+        """Everything a brand card shows: industry, rating stats, top review.
+
+        The brand body isn't shown on a card, so it isn't loaded.
+        """
+        return (
+            self.select_related("industry").defer("body_html")
+            .with_rating_stats().with_top_review()
+        )
+
+
+# "Top" review: highest rating; on a tie the newest; then the highest id so
+# the choice is always deterministic.
+TOP_REVIEW_ORDER = ("-rating", "-published_at", "-id")
 
 
 class Brand(WordPressSourced):
@@ -101,6 +141,16 @@ class Brand(WordPressSourced):
 
     def __str__(self):
         return self.name
+
+    @property
+    def top_review(self):
+        """Highest-rated review, newest first on ties (see TOP_REVIEW_ORDER).
+
+        Free when the queryset used with_top_review(); otherwise one query.
+        """
+        if hasattr(self, "_top_reviews"):
+            return self._top_reviews[0] if self._top_reviews else None
+        return self.reviews.select_related("reviewer").order_by(*TOP_REVIEW_ORDER).first()
 
 
 class Reviewer(WordPressSourced):

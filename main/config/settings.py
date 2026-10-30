@@ -25,6 +25,7 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 INSTALLED_APPS = [
     "django.contrib.staticfiles",
+    "rest_framework",
     "catalog",
 ]
 
@@ -66,6 +67,16 @@ USE_I18N = False
 USE_TZ = True
 
 STATIC_URL = "static/"
+
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
+    # Public API for now. Authentication comes from the auth service in a later
+    # step; there is no django.contrib.auth here, so no anonymous user object.
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
+    "UNAUTHENTICATED_USER": None,
+}
 
 # WordPress source database, read only by the import_wp command. Not a Django
 # DATABASES alias on purpose: the ORM, migrate and the running site never see it.

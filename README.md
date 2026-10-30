@@ -4,8 +4,8 @@ Django replacement for the WordPress brand-reviews site
 ([ca-code-challenge-wordpress](../ca-code-challenge-wordpress)).
 
 Work in progress. Done so far: Docker setup, models, WordPress import for both
-services, tests. Not yet: pages, brand API, React component, SCSS, login/tokens,
-shared library.
+services, brand listing API, tests. Not yet: pages, React component, SCSS,
+login/tokens, shared library.
 
 ## Services
 
@@ -62,6 +62,47 @@ reports `created / updated / unchanged / missing` for each entity.
 - **Roles:** WP `administrator`/`editor` → `editor`, everything else → `reader`.
 - **Passwords:** WordPress hashes are not copied. New accounts get
   `AUTH_IMPORT_PASSWORD` (hashed per account), or an unusable password if empty.
+
+## Brand listing API
+
+`GET /api/brands/` (public, JSON). Example: <http://localhost:8000/api/brands/?industry=insurance,finance&ordering=-review_count>
+
+| Parameter | Values | Default |
+|---|---|---|
+| `industry` | one or more industry slugs, comma-separated or repeated; brands in any of them | all |
+| `ordering` | `-average_rating`, `average_rating`, `-review_count`, `review_count` | `-average_rating` |
+| `page` | page number, 12 brands per page (fixed) | `1` |
+
+Unknown industry or ordering values return `400` with a message per parameter;
+a page past the end returns `404`.
+
+```json
+{
+  "count": 5, "page": 1, "total_pages": 1, "next": null, "previous": null,
+  "ordering": "-average_rating",
+  "industries": [{"slug": "finance", "name": "Finance"}, "..."],
+  "results": [{
+    "slug": "acme-insurance", "name": "Acme Insurance Co.",
+    "industry": {"slug": "insurance", "name": "Insurance"},
+    "headquarters": "Hartford, CT", "short_description": "Acme Insurance is…",
+    "average_rating": 3.92, "review_count": 12,
+    "top_review": {"slug": "…", "title": "…", "rating": 5, "snippet": "first 30 words…",
+                   "reviewer_name": "Sarah K.", "location": "Denver, CO",
+                   "published_at": "2026-05-19T20:29:26Z"}
+  }]
+}
+```
+
+- **Ratings** are calculated from the reviews on every request; `average_rating`
+  is a number with 2 decimals, `null` (and `top_review` `null`) for a brand
+  without reviews. Unrated brands sort last when ordering by rating.
+- **Top review** = highest rating; on a tie the newest; then the highest id.
+- **Stable order:** ties are broken by more reviews (or higher rating), then
+  name, then id, so pages never overlap or skip a brand.
+- **`industries`** lists the filter options, so a client needs no second request.
+- **4 queries per request**, however many brands: industries, count, one page
+  of brands with their ratings, and the top reviews for that page
+  (Postgres `DISTINCT ON`).
 
 ## Tests
 

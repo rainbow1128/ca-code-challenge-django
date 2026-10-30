@@ -4,3 +4,4 @@ psycopg[binary]==3.3.6
 PyMySQL==1.2.3
 # HTML sanitizing on import
 nh3==0.3.7
+djangorestframework==3.18.3

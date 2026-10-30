@@ -46,11 +46,16 @@ def to_plain_text(raw):
     return _WHITESPACE.sub(" ", html.unescape(strip_tags(spaced))).strip()
 
 
-def make_short_description(body_html, words=SHORT_DESCRIPTION_WORDS):
-    """First ``words`` words of the body as plain text, with an ellipsis if cut.
-
-    Also capped at the field's length, so a body with very long "words"
-    (e.g. URLs) can't make the generated value invalid.
-    """
+def excerpt(body_html, words, max_chars=None):
+    """First ``words`` words as plain text, with an ellipsis if cut."""
     text = Truncator(to_plain_text(body_html)).words(words, truncate="…")
-    return Truncator(text).chars(SHORT_DESCRIPTION_MAX_CHARS, truncate="…")
+    return Truncator(text).chars(max_chars, truncate="…") if max_chars else text
+
+
+def make_short_description(body_html, words=SHORT_DESCRIPTION_WORDS):
+    """Brand short description generated on first import.
+
+    Capped at the field's length, so a body with very long "words" (e.g.
+    URLs) can't make the generated value invalid.
+    """
+    return excerpt(body_html, words, max_chars=SHORT_DESCRIPTION_MAX_CHARS)
