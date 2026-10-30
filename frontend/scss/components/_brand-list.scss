@@ -1,0 +1,104 @@
+// The React <BrandList /> on /brand/: filter toolbar, results states, pagination.
+// Cards are the shared .card component.
+
+@use "../abstracts/tools" as *;
+
+// == Toolbar ================================================================
+
+.brand-list__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: space(4);
+  margin-bottom: space(6);
+
+  .field {
+    flex: 1 1 12rem; // side by side when there's room, stacked on phones
+
+    @include mq("sm") {
+      flex: 0 1 16rem;
+    }
+  }
+}
+
+// == Results and their states ===============================================
+
+// Focus moves here after paging (tabindex="-1"); the base styles show the
+// ring only for keyboard-driven focus.
+.brand-list__heading {
+  margin-bottom: space(5);
+  font-size: font-size("xl");
+}
+
+.brand-list__results {
+  // While the next page loads, the old cards stay but are dimmed.
+  &[aria-busy="true"] .grid {
+    opacity: 0.55;
+  }
+
+  @include motion {
+    .grid {
+      transition: opacity duration("fast") ease-out;
+    }
+  }
+}
+
+.brand-list__empty,
+.brand-list__error {
+  @include panel(6);
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: space(4);
+}
+
+.brand-list__error {
+  border-left: 4px solid color("error");
+}
+
+// == Pagination =============================================================
+
+.pagination {
+  margin-top: space(8);
+
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: space(2);
+  }
+}
+
+.pagination__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: space(2 3);
+  background: color("surface");
+  border: 1px solid color("border");
+  border-radius: radius("sm");
+  color: color("text");
+
+  @include hover {
+    border-color: color("primary");
+    text-decoration: none;
+  }
+
+  &[aria-current="page"] {
+    background: color("primary");
+    border-color: color("primary");
+    color: color("on-primary");
+    font-weight: font-weight("semibold");
+  }
+
+  &[aria-disabled="true"] {
+    color: color("muted");
+  }
+}
+
+.pagination__gap {
+  padding-inline: space(1);
+  color: color("muted");
+}

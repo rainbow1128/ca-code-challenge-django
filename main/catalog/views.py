@@ -1,7 +1,7 @@
 """Server-rendered pages. URLs and slugs match the WordPress permalinks:
-/  ·  /brand/<slug>/  ·  /review/<slug>/
+/  ·  /brand/  ·  /brand/<slug>/  ·  /review/<slug>/
 
-Query budget (asserted in tests): home 2, brand 2, review 2.
+Query budget (asserted in tests): home 2, brand list 1, brand 2, review 2.
 """
 
 from django.shortcuts import get_object_or_404, render
@@ -19,6 +19,13 @@ def home(request):
         "top_brands": top_brands[:HOME_BRANDS],
         "recent_reviews": recent_reviews[:HOME_REVIEWS],
     })
+
+
+def brand_list(request):
+    """The WP brand archive. The React <BrandList /> renders the list from the
+    API; the plain links are the fallback when JavaScript is off."""
+    brands = Brand.objects.only("name", "slug").order_by("name")
+    return render(request, "catalog/brand_list.html", {"brands": brands})
 
 
 def brand_detail(request, slug):

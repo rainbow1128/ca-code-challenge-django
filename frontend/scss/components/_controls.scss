@@ -1,0 +1,46 @@
+// Form fields and buttons (brand list filters, retry/reset actions).
+
+@use "../abstracts/tools" as *;
+
+// == Field: a label above its control =======================================
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: space(1);
+}
+
+.field__label {
+  font-size: font-size("sm");
+  font-weight: font-weight("semibold");
+}
+
+.field__control {
+  min-height: 2.75rem; // 44px touch target
+  padding: space(2 3);
+  background: color("surface");
+  border: 1px solid color("muted"); // control borders need 3:1, so not "border"
+  border-radius: radius("sm");
+  color: color("text");
+  font: inherit;
+}
+
+// == Button =================================================================
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: space(2 4);
+  background: color("primary");
+  border: 1px solid color("primary");
+  border-radius: radius("sm");
+  color: color("on-primary");
+  font: inherit;
+  font-weight: font-weight("semibold");
+  cursor: pointer;
+
+  @include hover {
+    background: color("primary-dark");
+  }
+}

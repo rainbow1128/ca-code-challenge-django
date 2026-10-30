@@ -66,7 +66,7 @@ class LayoutTests(Data, TestCase):
     def test_every_page_has_one_h1_a_skip_link_and_landmarks(self):
         acme = self.brand("acme", [5])
         review = acme.reviews.get()
-        for url in ["/", "/brand/acme/", f"/review/{review.slug}/"]:
+        for url in ["/", "/brand/", "/brand/acme/", f"/review/{review.slug}/"]:
             with self.subTest(url=url):
                 html = self.html(url)
                 self.assertEqual(html.count("<h1"), 1)
@@ -143,6 +143,37 @@ class HomePageTests(Data, TestCase):
         for i in range(10):
             self.brand(f"more-{i}", [3, 4], industry=self.finance)
         self.assert_query_count("/", 2)
+
+
+class BrandListPageTests(Data, TestCase):
+    """The /brand/ archive: a shell for the React list, plus plain links without JS."""
+
+    def test_mounts_the_react_list_with_the_api_url(self):
+        html = self.html("/brand/")
+        self.assertInHTML('<h1 id="brands-title">Brands</h1>', html)
+        self.assertIn('<div id="brand-list" data-api-url="/api/brands/">', html)
+        self.assertIn('<script type="module" src="/static/js/brand-list.js"></script>', html)
+
+    def test_lists_every_brand_as_a_link_without_javascript(self):
+        self.brand("zeta", name="Zeta")
+        self.brand("acme", name="Acme")
+        noscript = self.html("/brand/").split("<noscript>")[1].split("</noscript>")[0]
+        self.assertEqual(self.links(noscript, "/brand/"), ["acme", "zeta"])
+
+    def test_nav_marks_brands_as_current(self):
+        html = self.html("/brand/")
+        self.assertIn('<a href="/brand/" aria-current="page">Brands</a>', html)
+        self.assertNotIn('<a href="/" aria-current="page">', html)
+
+    def test_home_links_to_all_brands(self):
+        self.brand("acme", [5])
+        top = self.section(self.html("/"), "top-brands-title")
+        self.assertIn('<a href="/brand/">See all brands', top)
+
+    def test_query_count(self):
+        for i in range(5):
+            self.brand(f"b{i}")
+        self.assert_query_count("/brand/", 1)
 
 
 class BrandPageTests(Data, TestCase):

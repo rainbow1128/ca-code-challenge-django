@@ -56,6 +56,24 @@
   font-size: font-size("md");
 }
 
+// Top review quoted on a brand card (React brand list).
+.card__quote {
+  margin: auto 0 0; // pinned to the bottom of the card
+  padding-top: space(3);
+  border-top: 1px solid color("border");
+
+  blockquote {
+    margin: 0 0 space(2);
+    color: color("text-body");
+    font-size: font-size("md");
+    font-style: italic;
+  }
+
+  cite {
+    font-style: normal;
+  }
+}
+
 // == Badge ===================================================================
 
 // Industry label.

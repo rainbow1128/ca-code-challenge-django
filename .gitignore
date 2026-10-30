@@ -9,5 +9,6 @@ htmlcov/
 
 # Frontend
 node_modules/
-# Compiled from frontend/scss by `npm run build:css` (the assets service)
+# Built from frontend/ by `npm run build` (the assets service)
 main/static/css/
+main/static/js/

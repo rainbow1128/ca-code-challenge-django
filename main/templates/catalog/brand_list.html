@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Brands — Brand Reviews{% endblock %}
+{% block meta %}<meta name="description" content="Browse, filter and sort all reviewed brands.">{% endblock %}
+
+{% block content %}
+<section class="hero hero--compact" aria-labelledby="brands-title">
+  <div class="container">
+    <h1 id="brands-title">Brands</h1>
+    <p>Browse all brands in our reviews directory. Filter by industry and sort by rating or number of reviews.</p>
+  </div>
+</section>
+
+<div class="section">
+  <div class="container">
+    {# React mounts here (frontend/src/brand-list); it replaces this element's content. #}
+    <div id="brand-list" data-api-url="{% url 'api-brand-list' %}">
+      <noscript>
+        <p>Turn on JavaScript to filter and sort brands. All brands:</p>
+        <ul>
+          {% for brand in brands %}<li><a href="{% url 'brand-detail' brand.slug %}">{{ brand.name }}</a></li>{% endfor %}
+        </ul>
+      </noscript>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script type="module" src="{% static 'js/brand-list.js' %}"></script>{% endblock %}

@@ -1,4 +1,4 @@
-// Home page: hero and content sections.
+// Home page (and the /brand/ listing page): hero and content sections.
 
 @use "../abstracts/tools" as *;
 
@@ -26,6 +26,13 @@
     }
   }
 
+  // Shorter band for listing pages (/brand/).
+  &--compact {
+    @include mq("sm") {
+      padding-block: space(12);
+    }
+  }
+
   // Full white, not 92% opacity as in the WP theme, to keep contrast.
   p {
     max-width: 40rem;
@@ -47,4 +54,9 @@
     margin-bottom: space(6);
     font-size: font-size("xl");
   }
+}
+
+.section__more {
+  margin-top: space(6);
+  font-weight: font-weight("semibold");
 }

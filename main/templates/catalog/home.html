@@ -17,6 +17,7 @@
       <ul class="grid" role="list">
         {% for brand in top_brands %}<li>{% include "catalog/_brand_card.html" %}</li>{% endfor %}
       </ul>
+      <p class="section__more"><a href="{% url 'brand-list' %}">See all brands<span aria-hidden="true"> &rarr;</span></a></p>
     {% else %}
       <p class="meta">No brands yet.</p>
     {% endif %}

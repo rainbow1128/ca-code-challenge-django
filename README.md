@@ -4,8 +4,8 @@ Django replacement for the WordPress brand-reviews site
 ([ca-code-challenge-wordpress](../ca-code-challenge-wordpress)).
 
 Work in progress. Done so far: Docker setup, models, WordPress import for both
-services, brand listing API, server-rendered pages, SCSS, tests. Not yet: React
-component, login/tokens, shared library.
+services, brand listing API, server-rendered pages, SCSS, React brand list,
+tests. Not yet: login/tokens, shared library.
 
 ## Services
 
@@ -13,7 +13,7 @@ component, login/tokens, shared library.
 |---|---|---|---|
 | `main` | 8000 | `main-db` (Postgres 17) | industries, brands, reviewer profiles, reviews |
 | `auth` | 8001 | `auth-db` (Postgres 17) | user accounts, passwords, roles (`reader`, `editor`) |
-| `assets` | — | — | compiles `frontend/scss` → `main/static/css/main.css`, then exits |
+| `assets` | — | — | builds `frontend/` → `main/static/css/main.css` and `main/static/js/brand-list.js`, then exits |
 | `main-wp-import` | — | — | one-off job: WordPress → main |
 | `auth-wp-import` | — | — | one-off job: WordPress users → auth |
 
@@ -72,6 +72,7 @@ brand and review URL is checked to render):
 | URL | Shows | Queries |
 |---|---|---|
 | `/` | hero, 6 top-rated brands (calculated ratings), 6 newest reviews | 2 |
+| `/brand/` | the React `<BrandList />` (below); plain brand links when JavaScript is off | 1 |
 | `/brand/<slug>/` | industry, rating and count, HQ, founded, website, description, all reviews newest first | 2 |
 | `/review/<slug>/` | rating, reviewer, location, date, full text, link back to the brand, brand summary | 2 |
 
@@ -83,19 +84,9 @@ Stars are rounded to the nearest whole star; the number is shown next to them.
 
 ## Styles (SCSS)
 
-Source in [frontend/scss/](frontend/scss/), compiled with Dart Sass (pinned in
-`frontend/package.json`) to `main/static/css/main.css`, which every page loads.
-The compiled file is not committed; `docker compose up` builds it (the `assets`
-service), and so does:
-
-```bash
-docker compose run --rm assets                       # compile once (compressed)
-docker compose run --rm assets npm run watch:css     # recompile on save (readable output)
-docker compose run --rm assets npm run check:css     # the CSS check (below)
-```
-
-Each `assets` run installs the locked npm packages first, so Node is only
-needed inside Docker. Without Docker: `cd frontend && npm ci && npm run build:css`.
+Source in [frontend/scss/](frontend/scss/), compiled with Dart Sass to
+`main/static/css/main.css`, which every page loads (the React list uses the same
+classes). Built files are not committed; see [Frontend build](#frontend-build).
 
 ```
 frontend/scss/
@@ -110,7 +101,9 @@ frontend/scss/
   components/_card.scss     brand/review cards and the industry badge
   components/_stars.scss    star ratings
   components/_review-list.scss  full reviews on the brand page
-  pages/_home.scss          hero and home sections
+  components/_controls.scss     form fields and buttons
+  components/_brand-list.scss   React list: filter toolbar, loading/empty/error states, pagination
+  pages/_home.scss          hero (also compact on /brand/) and home sections
   pages/_detail.scss        brand and review pages (header band, text panel, brand facts), 404
 ```
 
@@ -132,7 +125,71 @@ frontend/scss/
 
 **`npm run check:css`** fails when the SCSS doesn't compile, when Sass prints any
 warning, when a color pair drops below its WCAG contrast minimum, or when a
-Django template uses a class that no CSS rule styles.
+Django template or React component uses a class that no CSS rule styles.
+
+## React brand list
+
+[frontend/src/brand-list/](frontend/src/brand-list/), React 19.2 + TypeScript 5.9, no UI
+framework, built with Vite 7 to `main/static/js/brand-list.js` and mounted on
+`/brand/` (the WordPress brand archive URL) into
+`<div id="brand-list" data-api-url="/api/brands/">`.
+
+| File | |
+|---|---|
+| `BrandList.tsx` | state, URL sync, data loading, loading/empty/error states, filter and sort controls |
+| `BrandCard.tsx` | card and stars (same markup and classes as the Django templates) |
+| `Pagination.tsx` | page links with gaps for many pages |
+| `api.ts` | API types, `fetchBrands`, query ↔ search params |
+| `urlState.ts` | read/write the query in the page URL |
+
+- **Controls:** one industry `<select>` (options come from the API's
+  `industries`), a sort `<select>` (highest/lowest rated, most/fewest reviewed),
+  pagination links. Changing the filter or sort goes back to page 1.
+- **URL state:** the page URL holds the same parameters as the API
+  (`/brand/?industry=finance&ordering=-review_count&page=2`, defaults left out).
+  Every change adds a history entry; Back/Forward re-read it. Values the controls
+  can't show (`?page=abc`, unknown ordering) are cleaned from the URL; an unknown
+  industry gets the API's 400 and a "Reset filters" button.
+- **Requests:** each change aborts the request still in flight
+  (`AbortController`), so a slow old response can never replace a newer one.
+- **States:** "Loading brands…" on first load; later loads keep the old cards,
+  dimmed, with `aria-busy`. Empty: a message and "Show all industries". Errors:
+  `role="alert"` with "Try again" (network/5xx), "Reset filters" (400) or
+  "Go to the first page" (404).
+- **Accessibility:** labelled controls, a live status message for loading and
+  result counts, focus moves to the results heading after paging or reset,
+  pagination is a `<nav>` with `aria-current`, real links (`?page=2`) that also
+  work in a new tab, and the site's focus ring and tokens.
+
+## Frontend build
+
+Node runs only inside Docker: the `assets` service is built from
+[frontend/Dockerfile](frontend/Dockerfile) (Node 22 LTS + npm 11.6.2). It installs
+the locked packages with `npm ci` when `package-lock.json` changes, then runs the
+command.
+
+```bash
+docker compose run --rm assets                      # build CSS + JS (also runs on `docker compose up`)
+docker compose run --rm assets npm run check        # CSS check + typecheck + frontend tests
+docker compose run --rm assets npm test             # frontend tests only (Vitest + Testing Library)
+docker compose run --rm assets npm run watch:css    # rebuild CSS on save (watch:js for the React bundle)
+```
+
+Without Docker: `cd frontend && npm ci && npm run build` (needs npm 11.6.2).
+
+**Versions** are pinned exactly in `frontend/package.json`, on established
+release lines that are supported together: React 19.2, TypeScript 5.9 (the
+JavaScript compiler, not the 7.x native one), Vite 7 + `@vitejs/plugin-react` 5,
+Vitest 4 + jsdom 27, Testing Library (React 16, DOM 10, jest-dom 6,
+user-event 14), Dart Sass 1.101, on Node 22 LTS.
+
+**npm is pinned too**, to 11.6.2: `"packageManager"` and `"engines"` in
+`package.json`, enforced by `engine-strict=true` in `frontend/.npmrc` (any other
+npm refuses to install), and installed in the `assets` image. The lockfile is
+generated and installed by that same npm. (npm 10.9 also can't resolve this
+dependency set: its resolver crashes on Vitest's optional `jsdom` peer.) To change
+a dependency, edit `package.json`, then regenerate the lockfile with
+`docker compose run --rm --entrypoint npm assets install`.
 
 ## Brand listing API
 
@@ -180,6 +237,7 @@ a page past the end returns `404`.
 ```bash
 docker compose run --rm main python manage.py test catalog
 docker compose run --rm auth python manage.py test accounts
+docker compose run --rm assets npm run check
 
 # Against the real WordPress MariaDB (WP stack running):
 docker compose run --rm -e WP_INTEGRATION_TESTS=1 --entrypoint python \

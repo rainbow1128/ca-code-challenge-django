@@ -3,8 +3,9 @@
 // Fails (exit 1) when:
 //   1. the SCSS doesn't compile, or Sass prints any warning (deprecations included);
 //      this includes the WCAG contrast checks in scss/abstracts/_checks.scss;
-//   2. a Django template uses a class that no CSS rule styles (typo or missing style).
-// Reports, without failing, CSS classes that no template uses yet.
+//   2. a Django template or React component uses a class that no CSS rule styles
+//      (typo or missing style).
+// Reports, without failing, CSS classes that nothing uses yet.
 
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -13,6 +14,7 @@ import * as sass from "sass";
 const root = path.resolve(import.meta.dirname, "..");
 const entry = path.join(root, "scss", "main.scss");
 const templatesDir = path.resolve(root, "..", "main", "templates");
+const componentsDir = path.join(root, "src");
 
 // Classes that are hooks only (no styles needed), with the reason.
 const UNSTYLED_ON_PURPOSE = new Map([
@@ -21,6 +23,7 @@ const UNSTYLED_ON_PURPOSE = new Map([
   ["brand-card", "modifier hook; shares .card"],
   ["review-card", "modifier hook; shares .card"],
   ["brand-summary", "<aside> landmark; its panel is .brand-summary__body"],
+  ["brand-list", "React root wrapper; its parts are styled"],
 ]);
 
 function fail(message) {
@@ -48,21 +51,31 @@ if (warnings.length) fail(`Sass warnings:\n- ${warnings.join("\n- ")}`);
 // 2. Template classes vs. CSS classes -----------------------------------------
 const cssClasses = new Set([...css.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]));
 
-function* htmlFiles(dir) {
+function* files(dir, test) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) yield* htmlFiles(full);
-    else if (entry.name.endsWith(".html")) yield full;
+    if (entry.isDirectory()) yield* files(full, test);
+    else if (test(entry.name)) yield full;
   }
 }
 
-const used = new Map(); // class -> first template using it
-for (const file of htmlFiles(templatesDir)) {
-  const html = readFileSync(file, "utf8");
-  for (const [, value] of html.matchAll(/class="([^"]*)"/g)) {
+const sources = [
+  // Django templates: class="…" (template tags inside are ignored)
+  ...[...files(templatesDir, (n) => n.endsWith(".html"))].map((f) => [f, /class="([^"]*)"/g]),
+  // React components: className="…" (static strings only)
+  ...[...files(componentsDir, (n) => n.endsWith(".tsx") && !n.includes(".test."))].map((f) => [
+    f,
+    /className="([^"]*)"/g,
+  ]),
+];
+
+const used = new Map(); // class -> first file using it
+for (const [file, pattern] of sources) {
+  const text = readFileSync(file, "utf8");
+  for (const [, value] of text.matchAll(pattern)) {
     const names = value.replace(/\{[{%].*?[%}]\}/g, " ").split(/\s+/).filter(Boolean);
     for (const name of names) {
-      if (!used.has(name)) used.set(name, path.relative(templatesDir, file));
+      if (!used.has(name)) used.set(name, path.relative(path.resolve(root, ".."), file));
     }
   }
 }
@@ -70,7 +83,7 @@ for (const file of htmlFiles(templatesDir)) {
 const missing = [...used].filter(([name]) => !cssClasses.has(name) && !UNSTYLED_ON_PURPOSE.has(name));
 if (missing.length) {
   fail(
-    "Template classes with no CSS rule:\n" +
+    "Classes used in templates/components with no CSS rule:\n" +
       missing.map(([name, file]) => `- .${name} (${file})`).join("\n") +
       "\nStyle them, fix the typo, or add them to UNSTYLED_ON_PURPOSE with a reason.",
   );
@@ -79,5 +92,5 @@ if (missing.length) {
 const unused = [...cssClasses].filter((name) => !used.has(name)).sort();
 const kb = (Buffer.byteLength(css) / 1024).toFixed(1);
 console.log(`check:css OK: compiled without warnings (${kb} KB expanded), contrast checks passed,`);
-console.log(`  ${used.size} template classes all styled (${UNSTYLED_ON_PURPOSE.size} hooks unstyled on purpose).`);
-if (unused.length) console.log(`  Not used by any template yet: ${unused.map((n) => "." + n).join(", ")}`);
+console.log(`  ${used.size} classes used by templates and components all styled (${UNSTYLED_ON_PURPOSE.size} hooks unstyled on purpose).`);
+if (unused.length) console.log(`  Not used anywhere yet: ${unused.map((n) => "." + n).join(", ")}`);
