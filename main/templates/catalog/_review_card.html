@@ -1,0 +1,11 @@
+{% load catalog_tags %}
+<article class="card review-card">
+  <h3 class="card__title"><a href="{% url 'review-detail' review.slug %}">{{ review.title }}</a></h3>
+  <p class="meta">Review of <a href="{% url 'brand-detail' review.brand.slug %}">{{ review.brand.name }}</a></p>
+  <p>{% stars review.rating show_value=False %}</p>
+  <p class="excerpt">{{ review.body_html|excerpt:24 }}</p>
+  <p class="meta">
+    {{ review.reviewer.display_name }}{% if review.location %}, {{ review.location }}{% endif %}
+    &middot; <time datetime="{{ review.published_at|date:'c' }}">{{ review.published_at|date:"M j, Y" }}</time>
+  </p>
+</article>

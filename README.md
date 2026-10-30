@@ -4,8 +4,8 @@ Django replacement for the WordPress brand-reviews site
 ([ca-code-challenge-wordpress](../ca-code-challenge-wordpress)).
 
 Work in progress. Done so far: Docker setup, models, WordPress import for both
-services, brand listing API, tests. Not yet: pages, React component, SCSS,
-login/tokens, shared library.
+services, brand listing API, server-rendered pages, tests. Not yet: React
+component, SCSS (pages are unstyled), login/tokens, shared library.
 
 ## Services
 
@@ -62,6 +62,23 @@ reports `created / updated / unchanged / missing` for each entity.
 - **Roles:** WP `administrator`/`editor` → `editor`, everything else → `reader`.
 - **Passwords:** WordPress hashes are not copied. New accounts get
   `AUTH_IMPORT_PASSWORD` (hashed per account), or an unusable password if empty.
+
+## Pages
+
+Server-rendered, same URLs and slugs as the WordPress permalinks (every WP
+brand and review URL is checked to render):
+
+| URL | Shows | Queries |
+|---|---|---|
+| `/` | hero, 6 top-rated brands (calculated ratings), 6 newest reviews | 2 |
+| `/brand/<slug>/` | industry, rating and count, HQ, founded, website, description, all reviews newest first | 2 |
+| `/review/<slug>/` | rating, reviewer, location, date, full text, link back to the brand, brand summary | 2 |
+
+Unknown slugs return `404` with the site's own not-found page (`templates/404.html`;
+Django shows its debug page instead while `DJANGO_DEBUG=1`). A missing trailing
+slash redirects, as on WordPress. One `<h1>` per page, skip link, landmark
+elements, star ratings with a single screen-reader label ("Rated 3.9 out of 5").
+Stars are rounded to the nearest whole star; the number is shown next to them.
 
 ## Brand listing API
 

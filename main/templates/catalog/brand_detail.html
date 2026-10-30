@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load catalog_tags %}
+
+{% block title %}{{ brand.name }} reviews — Brand Reviews{% endblock %}
+{% block meta %}{% if brand.short_description %}<meta name="description" content="{{ brand.short_description }}">{% endif %}{% endblock %}
+
+{% block content %}
+<article class="brand" aria-labelledby="brand-title">
+  <header class="brand-hero">
+    <div class="container">
+      <h1 id="brand-title">{{ brand.name }}</h1>
+      <p class="badge">{{ brand.industry.name }}</p>
+      <p>
+        {% stars brand.average_rating %}
+        <span class="meta">({{ brand.review_count }} review{{ brand.review_count|pluralize }})</span>
+      </p>
+      {% if brand.headquarters or brand.founded_year or brand.website_url %}
+        <dl class="brand-meta">
+          {% if brand.headquarters %}<div><dt>Headquarters</dt><dd>{{ brand.headquarters }}</dd></div>{% endif %}
+          {% if brand.founded_year %}<div><dt>Founded</dt><dd>{{ brand.founded_year }}</dd></div>{% endif %}
+          {% if brand.website_url %}<div><dt>Website</dt><dd><a href="{{ brand.website_url }}" rel="nofollow noopener">{{ brand.website_url|hostname }}</a></dd></div>{% endif %}
+        </dl>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if brand.body_html %}
+    <section class="brand-body" aria-labelledby="about-title">
+      <div class="container content">
+        <h2 id="about-title">About {{ brand.name }}</h2>
+        {{ brand.body_html|safe }}{# sanitized on import #}
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="reviews-section" aria-labelledby="reviews-title">
+    <div class="container">
+      <h2 id="reviews-title">Customer reviews</h2>
+      {% if reviews %}
+        <ul class="review-list" role="list">
+          {% for review in reviews %}
+            <li>
+              <article class="review-item" aria-labelledby="review-{{ review.pk }}-title">
+                <header class="review-head">
+                  <h3 id="review-{{ review.pk }}-title"><a href="{% url 'review-detail' review.slug %}">{{ review.title }}</a></h3>
+                  {% stars review.rating show_value=False %}
+                </header>
+                <p class="review-byline">
+                  {{ review.reviewer.display_name }}{% if review.location %}, {{ review.location }}{% endif %}
+                  &middot; <time datetime="{{ review.published_at|date:'c' }}">{{ review.published_at|date:"M j, Y" }}</time>
+                </p>
+                <div class="review-body">{{ review.body_html|safe }}</div>
+              </article>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="meta">No reviews yet.</p>
+      {% endif %}
+    </div>
+  </section>
+</article>
+{% endblock %}

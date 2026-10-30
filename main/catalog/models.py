@@ -83,20 +83,36 @@ class BrandQuerySet(models.QuerySet):
             models.Prefetch("reviews", queryset=top_reviews, to_attr="_top_reviews")
         )
 
-    def for_cards(self):
-        """Everything a brand card shows: industry, rating stats, top review.
+    def for_cards(self, *, top_review=True):
+        """Everything a brand card shows: industry, rating stats and (unless
+        ``top_review=False``) the top review.
 
         The brand body isn't shown on a card, so it isn't loaded.
         """
-        return (
-            self.select_related("industry").defer("body_html")
-            .with_rating_stats().with_top_review()
-        )
+        brands = self.select_related("industry").defer("body_html").with_rating_stats()
+        return brands.with_top_review() if top_review else brands
+
+    def ordered_by(self, key):
+        """Apply one of BRAND_ORDERINGS (needs with_rating_stats())."""
+        return self.order_by(*BRAND_ORDERINGS[key])
 
 
 # "Top" review: highest rating; on a tie the newest; then the highest id so
 # the choice is always deterministic.
 TOP_REVIEW_ORDER = ("-rating", "-published_at", "-id")
+
+# Brand orderings shared by the API and the pages. Each ends with name and id,
+# so the order is total (pages never overlap). Unrated brands sort last when
+# ordering by rating.
+_RATING_DESC = models.F("average_rating").desc(nulls_last=True)
+_RATING_ASC = models.F("average_rating").asc(nulls_last=True)
+_TIE_BREAK = ("name", "id")
+BRAND_ORDERINGS = {
+    "-average_rating": (_RATING_DESC, "-review_count", *_TIE_BREAK),
+    "average_rating": (_RATING_ASC, "-review_count", *_TIE_BREAK),
+    "-review_count": ("-review_count", _RATING_DESC, *_TIE_BREAK),
+    "review_count": ("review_count", _RATING_DESC, *_TIE_BREAK),
+}
 
 
 class Brand(WordPressSourced):
@@ -170,6 +186,15 @@ class Reviewer(WordPressSourced):
         return self.display_name
 
 
+class ReviewQuerySet(models.QuerySet):
+    def with_people(self):
+        """Load the brand (and its industry) and the reviewer in the same query."""
+        return self.select_related("brand__industry", "reviewer")
+
+    def recent(self):
+        return self.order_by("-published_at", "-id")
+
+
 class Review(WordPressSourced):
     brand = models.ForeignKey(Brand, on_delete=models.PROTECT, related_name="reviews")
     reviewer = models.ForeignKey(Reviewer, on_delete=models.PROTECT, related_name="reviews")
@@ -185,6 +210,8 @@ class Review(WordPressSourced):
         help_text="Where the reviewer was when writing this review (varies per review).",
     )
     published_at = models.DateTimeField()
+
+    objects = ReviewQuerySet.as_manager()
 
     class Meta:
         ordering = ["-published_at", "-id"]

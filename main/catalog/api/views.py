@@ -4,7 +4,7 @@ from rest_framework.response import Response
 
 from catalog.models import Brand, Industry
 
-from .params import ORDERINGS, BrandListParams
+from .params import BrandListParams
 from .serializers import BrandCardSerializer, IndustrySerializer
 
 
@@ -39,7 +39,7 @@ class BrandListView(GenericAPIView):
         brands = Brand.objects.for_cards()
         if industry_slugs:
             brands = brands.filter(industry__slug__in=industry_slugs)
-        brands = brands.order_by(*ORDERINGS[ordering])
+        brands = brands.ordered_by(ordering)
 
         page = self.paginate_queryset(brands)
         paginator = self.paginator

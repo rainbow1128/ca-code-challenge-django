@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load catalog_tags %}
+
+{% block title %}{{ review.title }} — {{ brand.name }} review — Brand Reviews{% endblock %}
+{% block meta %}<meta name="description" content="{{ review.body_html|excerpt:30 }}">{% endblock %}
+
+{% block content %}
+<article class="review" aria-labelledby="review-title">
+  <header class="review-hero">
+    <div class="container">
+      <p class="brand-link"><a href="{% url 'brand-detail' brand.slug %}"><span aria-hidden="true">&larr; </span>{{ brand.name }}</a></p>
+      <h1 id="review-title">{{ review.title }}</h1>
+      <p>{% stars review.rating %}</p>
+      <p class="review-byline">
+        By {{ review.reviewer.display_name }}{% if review.location %}, {{ review.location }}{% endif %}
+        &middot; <time datetime="{{ review.published_at|date:'c' }}">{{ review.published_at|date:"F j, Y" }}</time>
+      </p>
+    </div>
+  </header>
+
+  <div class="brand-body">
+    <div class="container content">
+      {{ review.body_html|safe }}{# sanitized on import #}
+    </div>
+  </div>
+</article>
+
+<aside class="brand-summary" aria-labelledby="brand-summary-title">
+  <div class="container">
+    <h2 id="brand-summary-title">About {{ brand.name }}</h2>
+    <p class="badge">{{ brand.industry.name }}</p>
+    <p>
+      {% stars brand.average_rating %}
+      <span class="meta">({{ brand.review_count }} review{{ brand.review_count|pluralize }})</span>
+    </p>
+    {% if brand.short_description %}<p>{{ brand.short_description }}</p>{% endif %}
+    <p><a href="{% url 'brand-detail' brand.slug %}#reviews-title">Read all {{ brand.review_count }} review{{ brand.review_count|pluralize }} of {{ brand.name }}</a></p>
+  </div>
+</aside>
+{% endblock %}
