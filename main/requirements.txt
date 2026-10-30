@@ -5,3 +5,8 @@ PyMySQL==1.2.3
 # HTML sanitizing on import
 nh3==0.3.7
 djangorestframework==3.18.3
+# Shared token verification + DRF auth/permission classes, from the repo's
+# shared/ package (local wheelhouse, see Dockerfile). Bump to adopt a new version.
+ca-shared[drf]==0.1.0
+PyJWT==2.13.0
+cryptography==49.0.0

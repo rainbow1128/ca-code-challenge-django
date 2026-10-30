@@ -7,7 +7,10 @@
 name: ca-django
 
 x-main-base: &main-base
-  build: ./main
+  build:
+    context: ./main
+    additional_contexts:
+      shared: ./shared
   image: ca-django/main:dev
   environment: &main-env
     DJANGO_SECRET_KEY: ${MAIN_SECRET_KEY:?set MAIN_SECRET_KEY in .env}
@@ -17,14 +20,26 @@ x-main-base: &main-base
     POSTGRES_DB: ${MAIN_DB_NAME:-main}
     POSTGRES_USER: ${MAIN_DB_USER:-main}
     POSTGRES_PASSWORD: ${MAIN_DB_PASSWORD:-main}
+    # Verifies tokens with the public key only (never sees the private key).
+    JWT_PUBLIC_KEY_FILE: /keys/public/jwt_public.pem
+    JWT_ISSUER: ${JWT_ISSUER:-brand-reviews-auth}
+    JWT_AUDIENCE: ${JWT_AUDIENCE:-brand-reviews-main}
   volumes:
     - ./main:/app
+    - jwt_public:/keys/public:ro
   depends_on:
     main-db:
       condition: service_healthy
+    jwt-keys:
+      condition: service_completed_successfully
+
+x-auth-build: &auth-build
+  context: ./auth_service
+  additional_contexts:
+    shared: ./shared
 
 x-auth-base: &auth-base
-  build: ./auth_service
+  build: *auth-build
   image: ca-django/auth:dev
   environment: &auth-env
     DJANGO_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY in .env}
@@ -34,11 +49,18 @@ x-auth-base: &auth-base
     POSTGRES_DB: ${AUTH_DB_NAME:-auth}
     POSTGRES_USER: ${AUTH_DB_USER:-auth}
     POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth}
+    JWT_PRIVATE_KEY_FILE: /keys/private/jwt_private.pem
+    JWT_ISSUER: ${JWT_ISSUER:-brand-reviews-auth}
+    JWT_AUDIENCE: ${JWT_AUDIENCE:-brand-reviews-main}
+    ACCESS_TOKEN_LIFETIME_SECONDS: ${ACCESS_TOKEN_LIFETIME_SECONDS:-900}
   volumes:
     - ./auth_service:/app
+    - jwt_private:/keys/private:ro
   depends_on:
     auth-db:
       condition: service_healthy
+    jwt-keys:
+      condition: service_completed_successfully
 
 # Connection to the WordPress MariaDB, used only by the import jobs.
 # "db" is the WP compose service name on the WP network. No Django service may
@@ -52,6 +74,22 @@ x-wp-source-env: &wp-source-env
   WP_TABLE_PREFIX: ${WP_TABLE_PREFIX:-wp_}
 
 services:
+  # Creates the Ed25519 signing key pair on first run, then does nothing.
+  # Private key -> jwt_private volume (mounted only into auth); public key ->
+  # jwt_public volume (mounted into main). Neither is in the repository.
+  # Replace the pair: docker compose run --rm jwt-keys python manage.py generate_jwt_keys --force
+  jwt-keys:
+    build: *auth-build
+    image: ca-django/auth:dev
+    environment:
+      DJANGO_SECRET_KEY: key-generation-only
+      JWT_PRIVATE_KEY_FILE: /keys/private/jwt_private.pem
+      JWT_PUBLIC_KEY_FILE: /keys/public/jwt_public.pem
+    volumes:
+      - jwt_private:/keys/private
+      - jwt_public:/keys/public
+    command: python manage.py generate_jwt_keys
+
   main-db:
     image: postgres:17-alpine
     environment:
@@ -109,10 +147,21 @@ services:
     entrypoint: ["sh", "-c", "[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci --no-audit --no-fund --loglevel=error; exec \"$$@\"", "--"]
     command: ["npm", "run", "build"]
 
+  # The shared package's own tests, outside both Django projects:
+  #   docker compose run --rm --build shared-tests
+  shared-tests:
+    profiles: ["test"]
+    build:
+      context: ./shared
+      dockerfile: Dockerfile.test
+    image: ca-django/shared-tests:dev
+
   # docker compose run --rm main-wp-import [--dry-run] [--prune]
   main-wp-import:
     <<: *main-base
     profiles: ["import"]
+    volumes:  # the code only; no key volume (the import never touches tokens)
+      - ./main:/app
     environment:
       <<: [*main-env, *wp-source-env]
     networks: [default, wordpress]
@@ -123,6 +172,8 @@ services:
   auth-wp-import:
     <<: *auth-base
     profiles: ["import"]
+    volumes:  # the code only; the private key stays with the running auth service
+      - ./auth_service:/app
     environment:
       <<: [*auth-env, *wp-source-env]
       AUTH_IMPORT_PASSWORD: ${AUTH_IMPORT_PASSWORD:-}
@@ -138,3 +189,5 @@ networks:
 volumes:
   main_db_data:
   auth_db_data:
+  jwt_private:
+  jwt_public:

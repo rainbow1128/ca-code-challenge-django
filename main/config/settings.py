@@ -73,11 +73,22 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    # Public API for now. Authentication comes from the auth service in a later
-    # step; there is no django.contrib.auth here, so no anonymous user object.
+    # Public by default. Views that change data opt in to JWTAuthentication and
+    # a role permission (ca_shared.drf). There is no django.contrib.auth here,
+    # so no anonymous user object.
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
     "UNAUTHENTICATED_USER": None,
+}
+
+# Access tokens are verified here with the auth service's PUBLIC key only:
+# no call to the auth service per request, so existing tokens keep working
+# while it is down. The key file comes from the jwt-keys compose job.
+CA_SHARED_AUTH = {
+    "PUBLIC_KEY_FILE": os.environ.get("JWT_PUBLIC_KEY_FILE", "/keys/public/jwt_public.pem"),
+    "ISSUER": os.environ.get("JWT_ISSUER", "brand-reviews-auth"),
+    "AUDIENCE": os.environ.get("JWT_AUDIENCE", "brand-reviews-main"),
+    "LEEWAY_SECONDS": 10,
 }
 
 # WordPress source database, read only by the import_wp command. Not a Django

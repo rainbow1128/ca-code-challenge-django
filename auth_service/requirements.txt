@@ -1,4 +1,9 @@
 Django==5.2.18
 psycopg[binary]==3.3.6
+# Shared token/role code, from the repo's shared/ package (built into a local
+# wheelhouse by the Dockerfile). Bump this pin to adopt a new version.
+ca-shared==0.1.0
+PyJWT==2.13.0
+cryptography==49.0.0
 # WP source import only (MariaDB, read-only)
 PyMySQL==1.2.3

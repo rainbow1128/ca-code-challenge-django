@@ -5,7 +5,7 @@ Django replacement for the WordPress brand-reviews site
 
 Work in progress. Done so far: Docker setup, models, WordPress import for both
 services, brand listing API, server-rendered pages, SCSS, React brand list,
-tests. Not yet: login/tokens, shared library.
+authentication (JWT login, protected brand update), shared Python library, tests.
 
 ## Services
 
@@ -13,6 +13,7 @@ tests. Not yet: login/tokens, shared library.
 |---|---|---|---|
 | `main` | 8000 | `main-db` (Postgres 17) | industries, brands, reviewer profiles, reviews |
 | `auth` | 8001 | `auth-db` (Postgres 17) | user accounts, passwords, roles (`reader`, `editor`) |
+| `jwt-keys` | — | — | one-off: creates the token signing key pair (first run only), then exits |
 | `assets` | — | — | builds `frontend/` → `main/static/css/main.css` and `main/static/js/brand-list.js`, then exits |
 | `main-wp-import` | — | — | one-off job: WordPress → main |
 | `auth-wp-import` | — | — | one-off job: WordPress users → auth |
@@ -127,6 +128,75 @@ frontend/scss/
 warning, when a color pair drops below its WCAG contrast minimum, or when a
 Django template or React component uses a class that no CSS rule styles.
 
+## Authentication
+
+The **auth service** owns users, passwords, roles and the **private** signing key.
+The **main service** gets only the **public** key and verifies tokens itself: it
+never calls the auth service, so tokens already issued keep working while the
+auth service is down (new logins don't).
+
+```bash
+# 1. Log in (imported WordPress users have AUTH_IMPORT_PASSWORD, "changeme" in .env.example;
+#    admin is an editor, the reviewers are readers)
+TOKEN=$(curl -s -X POST localhost:8001/api/token/ -H 'Content-Type: application/json' \
+  -d '{"username": "admin", "password": "changeme"}' | python3 -c 'import sys, json; print(json.load(sys.stdin)["access_token"])')
+
+# 2. Call the protected endpoint
+curl -X PATCH localhost:8000/api/brands/acme-insurance/ -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"short_description": "New text"}'
+```
+
+| Endpoint | | Responses |
+|---|---|---|
+| `POST :8001/api/token/` | `{"username", "password"}` | 200 `{"access_token", "token_type": "Bearer", "expires_in": 900, "role"}` · 400 bad body · 401 wrong credentials or inactive (one message) |
+| `PATCH :8000/api/brands/<slug>/` | `{"short_description"}` (max 500, only field) | 200 updated brand card · 401 no/invalid/expired token · 403 not an editor · 400 bad body · 404 unknown brand (checked after auth) |
+
+`GET /api/brands/` and the pages stay public and ignore the `Authorization` header.
+
+**Tokens** are JWTs signed with Ed25519 (`EdDSA`), valid 15 minutes
+(`ACCESS_TOKEN_LIFETIME_SECONDS`), with claims `sub` (user ID), `role`
+(`reader`/`editor`), `iss`, `aud`, `iat`, `exp`, `jti`. Verification accepts only
+`EdDSA` (no `none`, no HMAC with the public key), requires every claim, checks
+issuer and audience, and allows 10 s of clock difference.
+
+**Keys** are created by the `jwt-keys` job on the first `docker compose up`, into
+Docker volumes: `jwt_private` is mounted only into the auth service, `jwt_public`
+only into main (read-only). No key is in the repository (`*.pem` is ignored).
+To rotate: `docker compose run --rm jwt-keys python manage.py generate_jwt_keys --force`,
+then `docker compose restart auth main` (every issued token stops working).
+
+**Roles and revocation.** The role is read from the auth database at login and
+copied into the token. Changing a role or deactivating a user takes effect at
+the next login, so within at most one token lifetime (15 min); there is no
+per-request check and no deny-list (each token's `jti` is logged, so one could
+be added).
+
+## Shared library (`ca-shared`)
+
+[shared/](shared/) is a small installable package, version `0.1.0`
+(`shared/pyproject.toml`), used by both services:
+
+| Module | Used by | |
+|---|---|---|
+| `ca_shared.tokens` | auth (issue), main (verify) | key generation/loading, `issue_token`, `verify_token`, `TokenClaims` |
+| `ca_shared.roles` | both | `Role` (`reader`, `editor`), `has_role` (an editor can do what a reader can) |
+| `ca_shared.drf` (extra `[drf]`) | main | `JWTAuthentication`, `IsReader`, `IsEditor`, `TokenUser` |
+
+```bash
+docker compose run --rm --build shared-tests      # its own tests, no Django project needed
+```
+
+**How a version reaches a service.** Each service's Dockerfile builds the
+package from `shared/` into a local wheel, and the service's `requirements.txt`
+pins it like any other dependency (`ca-shared==0.1.0`, main uses
+`ca-shared[drf]==0.1.0`). To release a change: bump the version in
+`pyproject.toml` and `ca_shared/__init__.py`, then update the pin in each service
+and rebuild it (`docker compose build main auth`). A service whose pin doesn't
+match the source fails to build, so nothing changes silently. In production the
+wheels would go to a private package index, so each service could stay on its
+own version until it is upgraded; a breaking token change would then be shipped
+in two steps (verifiers first accept old and new, then the issuer switches).
+
 ## React brand list
 
 [frontend/src/brand-list/](frontend/src/brand-list/), React 19.2 + TypeScript 5.9, no UI
@@ -238,6 +308,7 @@ a page past the end returns `404`.
 docker compose run --rm main python manage.py test catalog
 docker compose run --rm auth python manage.py test accounts
 docker compose run --rm assets npm run check
+docker compose run --rm --build shared-tests
 
 # Against the real WordPress MariaDB (WP stack running):
 docker compose run --rm -e WP_INTEGRATION_TESTS=1 --entrypoint python \

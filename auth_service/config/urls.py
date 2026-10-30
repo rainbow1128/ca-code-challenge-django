@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.urls import path
 
-# Login and token endpoints are added in the auth step.
+from accounts import views
+
 urlpatterns = [
+    path("api/token/", views.token, name="token"),
     path("admin/", admin.site.urls),
 ]

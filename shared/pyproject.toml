@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ca-shared"
+version = "0.1.0"
+description = "Token issuing/verification, claims and role checks shared by the auth and main services."
+requires-python = ">=3.12"
+# Ranges, not pins: each service pins exact versions in its requirements.txt.
+dependencies = [
+    "PyJWT>=2.10,<3",
+    "cryptography>=44",
+]
+
+[project.optional-dependencies]
+# DRF authentication + permission classes (used by the main service).
+drf = ["Django>=5.2,<6", "djangorestframework>=3.15,<4"]
+test = ["pytest>=9,<10", "Django>=5.2,<6", "djangorestframework>=3.15,<4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

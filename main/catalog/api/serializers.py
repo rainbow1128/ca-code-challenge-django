@@ -41,3 +41,30 @@ class BrandCardSerializer(serializers.ModelSerializer):
             "average_rating", "review_count", "top_review",
         ]
         read_only_fields = fields
+
+
+class StrictCharField(serializers.CharField):
+    """A CharField that refuses numbers and booleans instead of converting them."""
+
+    def to_internal_value(self, data):
+        if not isinstance(data, str):
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
+class BrandUpdateSerializer(serializers.Serializer):
+    """Body of PATCH /api/brands/<slug>/. Only the short description is editable."""
+
+    short_description = StrictCharField(
+        max_length=Brand._meta.get_field("short_description").max_length,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
+
+    def validate(self, attrs):
+        unknown = sorted(set(self.initial_data) - set(self.fields))
+        if unknown:
+            raise serializers.ValidationError(
+                {name: ["This field can't be changed here."] for name in unknown}
+            )
+        return attrs

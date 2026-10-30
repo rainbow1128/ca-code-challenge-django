@@ -1,0 +1,11 @@
+# Runs the shared package's own tests, outside both Django projects:
+#   docker compose run --rm shared-tests
+FROM python:3.13-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /shared
+COPY constraints-test.txt .
+COPY pyproject.toml .
+COPY src ./src
+RUN pip install -c constraints-test.txt ".[test]"
+COPY tests ./tests
+CMD ["pytest", "-q"]

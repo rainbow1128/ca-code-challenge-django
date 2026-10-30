@@ -12,3 +12,6 @@ node_modules/
 # Built from frontend/ by `npm run build` (the assets service)
 main/static/css/
 main/static/js/
+
+# Keys live in Docker volumes (jwt-keys job); never commit one by accident.
+*.pem

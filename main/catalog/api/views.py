@@ -1,11 +1,17 @@
+import logging
+
+from django.shortcuts import get_object_or_404
 from rest_framework.generics import GenericAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
+from ca_shared.drf import IsEditor, JWTAuthentication
 from catalog.models import Brand, Industry
 
 from .params import BrandListParams
-from .serializers import BrandCardSerializer, IndustrySerializer
+from .serializers import BrandCardSerializer, BrandUpdateSerializer, IndustrySerializer
+
+log = logging.getLogger(__name__)
 
 
 class BrandPagination(PageNumberPagination):
@@ -53,3 +59,32 @@ class BrandListView(GenericAPIView):
             "industries": IndustrySerializer(industries, many=True).data,
             "results": self.get_serializer(page, many=True).data,
         })
+
+
+class BrandUpdateView(GenericAPIView):
+    """PATCH /api/brands/<slug>/  {"short_description": "..."}  (editors only)
+
+    401 missing, malformed, expired or wrongly signed token (WWW-Authenticate: Bearer)
+    403 valid token without the editor role
+    400 invalid body (unknown fields, not a string, longer than 500 characters)
+    404 unknown slug (only after authentication, so the endpoint can't be used
+        to probe which brands exist)
+    200 the updated brand card (same shape as a row of GET /api/brands/)
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsEditor]
+    serializer_class = BrandUpdateSerializer
+
+    def patch(self, request, slug):
+        update = self.get_serializer(data=request.data)
+        update.is_valid(raise_exception=True)
+        brand = get_object_or_404(Brand, slug=slug)
+
+        brand.short_description = update.validated_data["short_description"]
+        brand.save(update_fields=["short_description"])
+        log.info("brand %s short_description updated by %s (token %s)",
+                 brand.slug, request.user, request.auth.token_id)
+
+        card = Brand.objects.for_cards().get(pk=brand.pk)
+        return Response(BrandCardSerializer(card).data)
