@@ -1,0 +1,6 @@
+Django==5.2.18
+psycopg[binary]==3.3.6
+# WP source import only (MariaDB, read-only)
+PyMySQL==1.2.3
+# HTML sanitizing on import
+nh3==0.3.7

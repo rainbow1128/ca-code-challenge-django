@@ -1,0 +1,123 @@
+# Django side of the WP -> Django migration.
+#
+# Normal services (main, auth and their databases) never touch WordPress.
+# The two *-wp-import services are one-off jobs: they are the only ones that
+# join the WordPress compose network, so `docker compose up` works whether or
+# not the WordPress stack is running.
+name: ca-django
+
+x-main-base: &main-base
+  build: ./main
+  image: ca-django/main:dev
+  environment: &main-env
+    DJANGO_SECRET_KEY: ${MAIN_SECRET_KEY:?set MAIN_SECRET_KEY in .env}
+    DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    POSTGRES_HOST: main-db
+    POSTGRES_DB: ${MAIN_DB_NAME:-main}
+    POSTGRES_USER: ${MAIN_DB_USER:-main}
+    POSTGRES_PASSWORD: ${MAIN_DB_PASSWORD:-main}
+  volumes:
+    - ./main:/app
+  depends_on:
+    main-db:
+      condition: service_healthy
+
+x-auth-base: &auth-base
+  build: ./auth_service
+  image: ca-django/auth:dev
+  environment: &auth-env
+    DJANGO_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY in .env}
+    DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    POSTGRES_HOST: auth-db
+    POSTGRES_DB: ${AUTH_DB_NAME:-auth}
+    POSTGRES_USER: ${AUTH_DB_USER:-auth}
+    POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth}
+  volumes:
+    - ./auth_service:/app
+  depends_on:
+    auth-db:
+      condition: service_healthy
+
+# Connection to the WordPress MariaDB, used only by the import jobs.
+# "db" is the WP compose service name on the WP network. No Django service may
+# be called "db", or the name would be ambiguous inside the import containers.
+x-wp-source-env: &wp-source-env
+  WP_DB_HOST: ${WP_DB_HOST:-db}
+  WP_DB_PORT: ${WP_DB_PORT:-3306}
+  WP_DB_NAME: ${WP_DB_NAME:-wp}
+  WP_DB_USER: ${WP_DB_USER:-wp}
+  WP_DB_PASSWORD: ${WP_DB_PASSWORD:-wp}
+  WP_TABLE_PREFIX: ${WP_TABLE_PREFIX:-wp_}
+
+services:
+  main-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${MAIN_DB_NAME:-main}
+      POSTGRES_USER: ${MAIN_DB_USER:-main}
+      POSTGRES_PASSWORD: ${MAIN_DB_PASSWORD:-main}
+    volumes:
+      - main_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  auth-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME:-auth}
+      POSTGRES_USER: ${AUTH_DB_USER:-auth}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth}
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  main:
+    <<: *main-base
+    ports:
+      - "${MAIN_PORT:-8000}:8000"
+    command: sh -c "python manage.py migrate --noinput && exec python manage.py runserver 0.0.0.0:8000"
+
+  auth:
+    <<: *auth-base
+    ports:
+      - "${AUTH_PORT:-8001}:8000"
+    command: sh -c "python manage.py migrate --noinput && exec python manage.py runserver 0.0.0.0:8000"
+
+  # docker compose run --rm main-wp-import [--dry-run] [--prune]
+  main-wp-import:
+    <<: *main-base
+    profiles: ["import"]
+    environment:
+      <<: [*main-env, *wp-source-env]
+    networks: [default, wordpress]
+    entrypoint: ["sh", "-c", "python manage.py migrate --noinput && exec python manage.py import_wp \"$$@\"", "--"]
+    command: []
+
+  # docker compose run --rm auth-wp-import [--dry-run] [--prune]
+  auth-wp-import:
+    <<: *auth-base
+    profiles: ["import"]
+    environment:
+      <<: [*auth-env, *wp-source-env]
+      AUTH_IMPORT_PASSWORD: ${AUTH_IMPORT_PASSWORD:-}
+    networks: [default, wordpress]
+    entrypoint: ["sh", "-c", "python manage.py migrate --noinput && exec python manage.py import_wp_users \"$$@\"", "--"]
+    command: []
+
+networks:
+  wordpress:
+    external: true
+    name: ${WP_NETWORK_NAME:-ca-code-challenge-wordpress_default}
+
+volumes:
+  main_db_data:
+  auth_db_data:

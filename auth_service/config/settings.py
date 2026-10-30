@@ -1,0 +1,109 @@
+"""Settings for the auth service.
+
+The auth service owns user accounts, passwords and roles. It has its own
+database; the main service never reads it.
+"""
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def env_bool(name, default=False):
+    return os.environ.get(name, "1" if default else "0").lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name, default=""):
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+DEBUG = env_bool("DJANGO_DEBUG")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "accounts",
+]
+
+AUTH_USER_MODEL = "accounts.User"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+WSGI_APPLICATION = "config.wsgi.application"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ]
+        },
+    },
+]
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "HOST": os.environ.get("POSTGRES_HOST", "auth-db"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        "NAME": os.environ.get("POSTGRES_DB", "auth"),
+        "USER": os.environ.get("POSTGRES_USER", "auth"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+    }
+}
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = False
+USE_TZ = True
+
+STATIC_URL = "static/"
+
+# WordPress source database, read only by the import_wp_users command. Not a Django
+# DATABASES alias on purpose: the ORM, migrate and the running site never see it.
+WP_SOURCE = {
+    "host": os.environ.get("WP_DB_HOST", "db"),
+    "port": int(os.environ.get("WP_DB_PORT", "3306")),
+    "database": os.environ.get("WP_DB_NAME", "wp"),
+    "user": os.environ.get("WP_DB_USER", "wp"),
+    "password": os.environ.get("WP_DB_PASSWORD", ""),
+    "table_prefix": os.environ.get("WP_TABLE_PREFIX", "wp_"),
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
+}
+
+# Password for users created by import_wp_users ("" = unusable password).
+AUTH_IMPORT_PASSWORD = os.environ.get("AUTH_IMPORT_PASSWORD", "")
