@@ -4,8 +4,8 @@ Django replacement for the WordPress brand-reviews site
 ([ca-code-challenge-wordpress](../ca-code-challenge-wordpress)).
 
 Work in progress. Done so far: Docker setup, models, WordPress import for both
-services, brand listing API, server-rendered pages, tests. Not yet: React
-component, SCSS (pages are unstyled), login/tokens, shared library.
+services, brand listing API, server-rendered pages, SCSS, tests. Not yet: React
+component, login/tokens, shared library.
 
 ## Services
 
@@ -13,6 +13,7 @@ component, SCSS (pages are unstyled), login/tokens, shared library.
 |---|---|---|---|
 | `main` | 8000 | `main-db` (Postgres 17) | industries, brands, reviewer profiles, reviews |
 | `auth` | 8001 | `auth-db` (Postgres 17) | user accounts, passwords, roles (`reader`, `editor`) |
+| `assets` | — | — | compiles `frontend/scss` → `main/static/css/main.css`, then exits |
 | `main-wp-import` | — | — | one-off job: WordPress → main |
 | `auth-wp-import` | — | — | one-off job: WordPress users → auth |
 
@@ -79,6 +80,59 @@ Django shows its debug page instead while `DJANGO_DEBUG=1`). A missing trailing
 slash redirects, as on WordPress. One `<h1>` per page, skip link, landmark
 elements, star ratings with a single screen-reader label ("Rated 3.9 out of 5").
 Stars are rounded to the nearest whole star; the number is shown next to them.
+
+## Styles (SCSS)
+
+Source in [frontend/scss/](frontend/scss/), compiled with Dart Sass (pinned in
+`frontend/package.json`) to `main/static/css/main.css`, which every page loads.
+The compiled file is not committed; `docker compose up` builds it (the `assets`
+service), and so does:
+
+```bash
+docker compose run --rm assets                       # compile once (compressed)
+docker compose run --rm assets npm run watch:css     # recompile on save (readable output)
+docker compose run --rm assets npm run check:css     # the CSS check (below)
+```
+
+Each `assets` run installs the locked npm packages first, so Node is only
+needed inside Docker. Without Docker: `cd frontend && npm ci && npm run build:css`.
+
+```
+frontend/scss/
+  main.scss                 entry; the only file that lists partials
+  abstracts/                no CSS output
+    _tokens.scss            every raw value: colors, spacing, type, radii, shadows, breakpoint
+    _tools.scss             token lookups (color("primary"), space(4)…; unknown name = build
+                            error), mixins (mq, motion, hover, focus-ring, panel), contrast math
+    _checks.scss            WCAG contrast assertions for every color pair the site uses
+  base/_base.scss           custom properties, reset, typography, focus ring, skip link
+  layout/_layout.scss       page skeleton, container, site header and footer, card grid
+  components/_card.scss     brand/review cards and the industry badge
+  components/_stars.scss    star ratings
+  components/_review-list.scss  full reviews on the brand page
+  pages/_home.scss          hero and home sections
+  pages/_detail.scss        brand and review pages (header band, text panel, brand facts), 404
+```
+
+- **Tokens:** components use only token functions, never raw values. Colors
+  become CSS custom properties (`--color-primary`, …), so they can be themed at
+  runtime and reused by the React component.
+- **Adding a component:** create `components/_name.scss` starting with
+  `@use "../abstracts/tools" as *;`, style one block class (`.name`, `.name__part`),
+  and add one `@use` line to `main.scss`.
+- **Accessibility:** one `:focus-visible` ring for everything (yellow on the
+  dark hero and footer via `--focus-color`), a skip link, motion only inside the
+  `motion()` mixin (`prefers-reduced-motion: no-preference`), hover effects only
+  on devices that hover, font size relative to the reader's setting.
+- **Responsive:** mobile first with one breakpoint (`sm`, 640px, as in the
+  WordPress theme); the card grid needs none (1 column on phones, up to 3 on desktop).
+- **Contrast fixes vs. the WordPress theme:** stars `#f59e0b` → `#b45309`
+  (2.1 → 5.0:1), empty stars `#d1d5db` → `#8a919c` (1.5 → 3.2:1), muted text
+  `#6b7280` → `#5c6370` (4.5 → 5.6:1), hero text no longer at 92% opacity.
+
+**`npm run check:css`** fails when the SCSS doesn't compile, when Sass prints any
+warning, when a color pair drops below its WCAG contrast minimum, or when a
+Django template uses a class that no CSS rule styles.
 
 ## Brand listing API
 

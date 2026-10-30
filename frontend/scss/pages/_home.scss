@@ -1,0 +1,50 @@
+// Home page: hero and content sections.
+
+@use "../abstracts/tools" as *;
+
+// == Hero ====================================================================
+
+.hero {
+  --focus-color: #{color("focus-on-dark")};
+
+  padding-block: space(10);
+  background: linear-gradient(135deg, color("primary") 0%, color("primary-deep") 100%);
+  color: color("on-primary");
+
+  @include mq("sm") {
+    padding-block: space(16) space(14);
+  }
+
+  h1 {
+    margin-bottom: space(3);
+    font-size: font-size("2xl");
+    font-weight: font-weight("bold");
+    letter-spacing: letter-spacing("tight");
+
+    @include mq("sm") {
+      font-size: font-size("4xl");
+    }
+  }
+
+  // Full white, not 92% opacity as in the WP theme, to keep contrast.
+  p {
+    max-width: 40rem;
+    font-size: font-size("lg");
+  }
+}
+
+// == Sections ================================================================
+
+// A vertical band of the page with a heading (home page sections).
+.section {
+  padding-block: space(10);
+
+  @include mq("sm") {
+    padding-block: space(12);
+  }
+
+  h2 {
+    margin-bottom: space(6);
+    font-size: font-size("xl");
+  }
+}

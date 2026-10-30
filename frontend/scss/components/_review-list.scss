@@ -1,0 +1,45 @@
+// Full reviews in a list (brand page).
+
+@use "../abstracts/tools" as *;
+
+.review-list {
+  display: grid;
+  gap: space(4);
+}
+
+.review-item {
+  @include panel(5);
+
+  @include mq("sm") {
+    padding: space(6);
+  }
+}
+
+.review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: space(2 4);
+  margin-bottom: space(2);
+
+  h3 {
+    font-size: font-size("lg");
+    font-weight: font-weight("semibold");
+  }
+
+  a {
+    color: color("text");
+  }
+}
+
+.review-byline {
+  margin-bottom: space(3);
+  color: color("muted");
+  font-size: font-size("sm");
+}
+
+.review-body {
+  color: color("text-body");
+  font-size: font-size("md");
+}

@@ -67,6 +67,8 @@ USE_I18N = False
 USE_TZ = True
 
 STATIC_URL = "static/"
+# main/static/css/main.css is compiled from frontend/scss (not committed).
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],

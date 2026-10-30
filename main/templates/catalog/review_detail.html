@@ -19,22 +19,26 @@
   </header>
 
   <div class="brand-body">
-    <div class="container content">
-      {{ review.body_html|safe }}{# sanitized on import #}
+    <div class="container">
+      <div class="content">
+        {{ review.body_html|safe }}{# sanitized on import #}
+      </div>
     </div>
   </div>
 </article>
 
 <aside class="brand-summary" aria-labelledby="brand-summary-title">
   <div class="container">
-    <h2 id="brand-summary-title">About {{ brand.name }}</h2>
-    <p class="badge">{{ brand.industry.name }}</p>
-    <p>
-      {% stars brand.average_rating %}
-      <span class="meta">({{ brand.review_count }} review{{ brand.review_count|pluralize }})</span>
-    </p>
-    {% if brand.short_description %}<p>{{ brand.short_description }}</p>{% endif %}
-    <p><a href="{% url 'brand-detail' brand.slug %}#reviews-title">Read all {{ brand.review_count }} review{{ brand.review_count|pluralize }} of {{ brand.name }}</a></p>
+    <div class="brand-summary__body">
+      <h2 id="brand-summary-title">About {{ brand.name }}</h2>
+      <p class="badge">{{ brand.industry.name }}</p>
+      <p>
+        {% stars brand.average_rating %}
+        <span class="meta">({{ brand.review_count }} review{{ brand.review_count|pluralize }})</span>
+      </p>
+      {% if brand.short_description %}<p>{{ brand.short_description }}</p>{% endif %}
+      <p><a href="{% url 'brand-detail' brand.slug %}#reviews-title">Read all {{ brand.review_count }} review{{ brand.review_count|pluralize }} of {{ brand.name }}</a></p>
+    </div>
   </div>
 </aside>
 {% endblock %}

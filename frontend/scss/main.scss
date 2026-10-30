@@ -1,0 +1,23 @@
+// Entry point, compiled to main/static/css/main.css. The only file that lists partials.
+//
+//   abstracts/   tokens, tools (lookups + mixins), contrast checks; no CSS output
+//   base/        element defaults: custom properties, reset, typography, focus
+//   layout/      page skeleton: container, header, footer, card grid
+//   components/  reusable pieces: card + badge, stars, review list
+//   pages/       styles used by one kind of page: home, brand/review/404
+//
+// Groups go from general to specific; a later group may refine an earlier one.
+// A new component is one file in components/ (starting with
+// `@use "../abstracts/tools" as *;`) plus one line below.
+
+@use "abstracts/checks";
+
+@use "base/base";
+@use "layout/layout";
+
+@use "components/card";
+@use "components/stars";
+@use "components/review-list";
+
+@use "pages/home";
+@use "pages/detail";

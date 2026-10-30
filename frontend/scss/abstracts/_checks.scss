@@ -1,0 +1,36 @@
+// Compile-time accessibility checks: the build fails if a token change
+// breaks WCAG 2.1 AA contrast for a pair the site actually uses.
+//   text 4.5:1 (normal size)   ·   graphics and focus rings 3:1
+
+@use "tools" as *;
+
+$-pairs: (
+  // foreground, background, minimum, where
+  ("text", "bg", 4.5, "body text"),
+  ("text", "surface", 4.5, "card text"),
+  ("text-soft", "surface", 4.5, "card excerpt"),
+  ("text-body", "surface", 4.5, "review text"),
+  ("muted", "bg", 4.5, "meta text on page background"),
+  ("muted", "surface", 4.5, "meta text on cards"),
+  ("primary", "bg", 4.5, "links on page background"),
+  ("primary", "surface", 4.5, "links on cards"),
+  ("primary-dark", "primary-tint", 4.5, "industry badge"),
+  ("on-primary", "primary", 4.5, "hero text (gradient start)"),
+  ("on-primary", "primary-deep", 4.5, "hero text (gradient end)"),
+  ("footer-text", "footer-bg", 4.5, "footer text"),
+  ("footer-link", "footer-bg", 4.5, "footer links"),
+  ("star", "surface", 3, "filled star"),
+  ("star-empty", "surface", 3, "empty star"),
+  ("focus", "bg", 3, "focus ring on page background"),
+  ("focus", "surface", 3, "focus ring on cards"),
+  ("focus-on-dark", "primary", 3, "focus ring on hero"),
+  ("focus-on-dark", "primary-deep", 3, "focus ring on hero"),
+  ("focus-on-dark", "footer-bg", 3, "focus ring on footer"),
+);
+
+@each $fg, $bg, $min, $where in $-pairs {
+  $ratio: contrast-ratio(raw-color($fg), raw-color($bg));
+  @if $ratio < $min {
+    @error "Contrast #{$fg} on #{$bg} (#{$where}) is #{$ratio}:1, needs #{$min}:1";
+  }
+}

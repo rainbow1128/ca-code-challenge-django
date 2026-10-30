@@ -75,6 +75,7 @@ class LayoutTests(Data, TestCase):
                 self.assertIn('<main id="main"', html)
                 self.assertIn('<nav class="site-nav" aria-label="Primary">', html)
                 self.assertIn("<footer", html)
+                self.assertIn('<link rel="stylesheet" href="/static/css/main.css">', html)
 
     def test_home_link_is_marked_current_on_home_only(self):
         self.brand("acme")
@@ -265,6 +266,7 @@ class NotFoundTests(Data, TestCase):
                 self.assertInHTML("<h1>Page not found</h1>", html)
                 self.assertIn('<a href="/">Go to the home page</a>', html)
                 self.assertIn('<a class="skip-link" href="#main">', html)
+                self.assertIn('<link rel="stylesheet" href="/static/css/main.css">', html)
 
     def test_brand_slug_is_not_a_review_slug(self):
         self.brand("acme", [5])

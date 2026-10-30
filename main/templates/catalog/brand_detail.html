@@ -26,9 +26,11 @@
 
   {% if brand.body_html %}
     <section class="brand-body" aria-labelledby="about-title">
-      <div class="container content">
-        <h2 id="about-title">About {{ brand.name }}</h2>
-        {{ brand.body_html|safe }}{# sanitized on import #}
+      <div class="container">
+        <div class="content">
+          <h2 id="about-title">About {{ brand.name }}</h2>
+          {{ brand.body_html|safe }}{# sanitized on import #}
+        </div>
       </div>
     </section>
   {% endif %}

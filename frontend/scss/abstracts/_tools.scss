@@ -1,0 +1,151 @@
+// Everything a partial needs: tokens, token lookups, mixins, contrast math.
+// Emits no CSS. Every partial starts with  @use "../abstracts/tools" as *;
+//
+// Token lookups fail the build on an unknown name, so a typo can't silently
+// compile to nothing.
+
+@forward "tokens";
+
+@use "sass:map";
+@use "sass:list";
+@use "sass:math";
+@use "sass:color" as sass-color;
+@use "tokens" as *;
+
+// == Token lookups ===========================================================
+
+@function -lookup($map, $key, $group) {
+  @if not map.has-key($map, $key) {
+    @error "Unknown #{$group} token `#{$key}`. Known: #{map.keys($map)}";
+  }
+  @return map.get($map, $key);
+}
+
+/// A color as a CSS custom property (themeable at runtime): color("primary")
+@function color($name) {
+  $_: -lookup($colors, $name, "color");
+  @return var(--color-#{$name});
+}
+
+/// The raw color value, for compile-time work (contrast checks, gradients).
+@function raw-color($name) {
+  @return -lookup($colors, $name, "color");
+}
+
+/// space(4) or space(4 6) -> 1rem or 1rem 1.5rem
+@function space($keys...) {
+  $values: ();
+  @each $key in $keys {
+    @each $k in $key {
+      $values: list.append($values, -lookup($space, $k, "space"), space);
+    }
+  }
+  @return $values;
+}
+
+@function font-size($name) {
+  @return -lookup($font-sizes, $name, "font-size");
+}
+
+@function font-weight($name) {
+  @return -lookup($font-weights, $name, "font-weight");
+}
+
+@function line-height($name) {
+  @return -lookup($line-heights, $name, "line-height");
+}
+
+@function letter-spacing($name) {
+  @return -lookup($letter-spacings, $name, "letter-spacing");
+}
+
+@function radius($name) {
+  $_: -lookup($radii, $name, "radius");
+  @return var(--radius-#{$name});
+}
+
+@function shadow($name) {
+  $_: -lookup($shadows, $name, "shadow");
+  @return var(--shadow-#{$name});
+}
+
+@function duration($name) {
+  @return -lookup($durations, $name, "duration");
+}
+
+@function breakpoint($name) {
+  @return -lookup($breakpoints, $name, "breakpoint");
+}
+
+// -- WCAG contrast (used by _checks.scss) --------------------------------
+
+@function -linear-channel($value) {
+  $c: math.div($value, 255);
+  @if $c <= 0.04045 {
+    @return math.div($c, 12.92);
+  }
+  @return math.pow(math.div($c + 0.055, 1.055), 2.4);
+}
+
+/// WCAG 2 relative luminance of an sRGB color.
+@function luminance($color) {
+  $r: -linear-channel(sass-color.channel($color, "red", $space: rgb));
+  $g: -linear-channel(sass-color.channel($color, "green", $space: rgb));
+  $b: -linear-channel(sass-color.channel($color, "blue", $space: rgb));
+  @return 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
+}
+
+/// WCAG 2 contrast ratio between two colors (1 to 21).
+@function contrast-ratio($a, $b) {
+  $la: luminance($a);
+  $lb: luminance($b);
+  @return math.div(math.max($la, $lb) + 0.05, math.min($la, $lb) + 0.05);
+}
+
+// == Mixins ==================================================================
+
+/// Mobile first: rules apply from this breakpoint up.
+///   @include mq("sm") { ... }
+@mixin mq($name) {
+  @media (min-width: breakpoint($name)) {
+    @content;
+  }
+}
+
+/// Motion is opt-in: only for people who haven't asked to reduce it.
+@mixin motion {
+  @media (prefers-reduced-motion: no-preference) {
+    @content;
+  }
+}
+
+/// Hover effects only on devices that really hover (not sticky on touch).
+@mixin hover {
+  @media (hover: hover) {
+    &:hover {
+      @content;
+    }
+  }
+}
+
+/// The site focus ring. Its color comes from --focus-color, which dark
+/// sections (hero, footer) override, so one rule works on any background.
+@mixin focus-ring {
+  outline: $focus-ring-width solid var(--focus-color);
+  outline-offset: $focus-ring-offset;
+}
+
+/// Reset a <ul role="list"> used for layout (cards, nav, reviews).
+@mixin plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/// A white bordered panel (cards, review items, content boxes).
+@mixin panel($padding: 6) {
+  background: color("surface");
+  border: 1px solid color("border");
+  border-radius: radius("md");
+  padding: space($padding);
+}

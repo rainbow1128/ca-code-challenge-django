@@ -1,0 +1,17 @@
+{
+  "name": "brand-reviews-frontend",
+  "private": true,
+  "type": "module",
+  "description": "SCSS (and later the React BrandList) for the Django main service.",
+  "scripts": {
+    "build:css": "sass --no-source-map --style=compressed scss/main.scss ../main/static/css/main.css",
+    "watch:css": "sass --watch --style=expanded scss/main.scss ../main/static/css/main.css",
+    "check:css": "node scripts/check-css.mjs"
+  },
+  "devDependencies": {
+    "sass": "1.105.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

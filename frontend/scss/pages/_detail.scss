@@ -1,0 +1,151 @@
+// Brand and review pages (white header band, text panel) and the 404 page.
+
+@use "../abstracts/tools" as *;
+
+// == Brand page ==============================================================
+
+.brand-hero {
+  padding-block: space(8);
+  background: color("surface");
+  border-bottom: 1px solid color("border");
+
+  @include mq("sm") {
+    padding-block: space(10);
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: space(3);
+  }
+
+  h1 {
+    font-size: font-size("2xl");
+    letter-spacing: letter-spacing("tight");
+
+    @include mq("sm") {
+      font-size: font-size("3xl");
+    }
+  }
+}
+
+// White text panel (brand description, review text).
+.brand-body {
+  padding-block: space(8) space(10);
+
+  .content {
+    @include panel(5);
+
+    font-size: font-size("base");
+
+    @include mq("sm") {
+      padding: space(7);
+    }
+
+    h2 {
+      font-size: font-size("xl");
+    }
+  }
+}
+
+.reviews-section {
+  padding-block: space(6) space(10);
+
+  h2 {
+    margin-bottom: space(5);
+    font-size: font-size("xl");
+  }
+}
+
+// == Brand facts =============================================================
+
+// Brand facts: <dl class="brand-meta"><div><dt>Founded</dt><dd>1985</dd></div>…</dl>
+// Shown as "Founded 1985" pairs that wrap onto new lines on small screens.
+.brand-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: space(2 5);
+  margin-top: space(4);
+  color: color("muted");
+  font-size: font-size("md");
+
+  > div {
+    display: flex;
+    gap: space(1);
+  }
+
+  dt {
+    color: color("text");
+    font-weight: font-weight("semibold");
+
+    &::after {
+      content: ":";
+    }
+  }
+
+  dd {
+    overflow-wrap: anywhere; // long website hostnames on narrow screens
+  }
+}
+
+// == Review page =============================================================
+
+.review-hero {
+  padding-block: space(8) space(6);
+  background: color("surface");
+  border-bottom: 1px solid color("border");
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: space(3);
+  }
+
+  h1 {
+    font-size: font-size("2xl");
+  }
+}
+
+// "← Brand name" back link above the title.
+.brand-link {
+  font-size: font-size("sm");
+  font-weight: font-weight("semibold");
+  letter-spacing: letter-spacing("wide");
+  text-transform: uppercase;
+}
+
+// Brand box under the review.
+.brand-summary__body {
+  @include panel(5);
+
+  display: flex;
+  flex-direction: column;
+  gap: space(3);
+
+  @include mq("sm") {
+    padding: space(7);
+  }
+
+  h2 {
+    font-size: font-size("xl");
+  }
+}
+
+// == 404 page ================================================================
+
+.page-body {
+  @include panel(6);
+
+  display: flex;
+  flex-direction: column;
+  gap: space(4);
+  margin-block: space(12);
+
+  @include mq("sm") {
+    padding: space(8);
+  }
+
+  h1 {
+    font-size: font-size("2xl");
+  }
+}

@@ -1,0 +1,74 @@
+// Brand and review cards, and the industry badge shown on cards and pages.
+
+@use "../abstracts/tools" as *;
+
+// == Card ====================================================================
+
+// Brand and review cards on the home page (.brand-card / .review-card are
+// hooks for card-specific tweaks; both currently share this base).
+.card {
+  @include panel(5);
+
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: space(3);
+  box-shadow: shadow("sm");
+
+  @include motion {
+    transition:
+      box-shadow duration("fast") ease-out,
+      transform duration("fast") ease-out;
+  }
+
+  @include hover {
+    box-shadow: shadow("md");
+
+    @include motion {
+      transform: translateY(-1px);
+    }
+  }
+
+  // The whole card highlights while its title link has keyboard focus.
+  &:focus-within {
+    box-shadow: shadow("md");
+  }
+}
+
+.card__title {
+  font-size: font-size("lg");
+  font-weight: font-weight("semibold");
+
+  a {
+    color: color("text");
+  }
+}
+
+.card__rating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: space(2);
+}
+
+.excerpt {
+  color: color("text-soft");
+  font-size: font-size("md");
+}
+
+// == Badge ===================================================================
+
+// Industry label.
+.badge {
+  align-self: flex-start; // inside flex cards, don't stretch
+  display: inline-block;
+  padding: space(1 3);
+  background: color("primary-tint");
+  border: 1px solid color("primary-tint-border");
+  border-radius: radius("pill");
+  color: color("primary-dark");
+  font-size: font-size("xs");
+  font-weight: font-weight("semibold");
+  letter-spacing: 0.01em;
+  line-height: line-height("tight");
+}

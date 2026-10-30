@@ -1,0 +1,122 @@
+// The page skeleton shared by every page: body flow, container, header,
+// footer, card grid.
+
+@use "../abstracts/tools" as *;
+
+// == Page ====================================================================
+
+// Page skeleton: header, main, footer. <main> takes the spare height so the
+// footer sits at the bottom of the window on short pages.
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+main {
+  flex: 1;
+}
+
+// == Container ===============================================================
+
+.container {
+  max-width: var(--max-width);
+  margin-inline: auto;
+  padding-inline: space(4);
+
+  @include mq("sm") {
+    padding-inline: space(6);
+  }
+}
+
+// == Site header =============================================================
+
+.site-header {
+  background: color("surface");
+  border-bottom: 1px solid color("border");
+  padding-block: space(3);
+
+  > .container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: space(2 6);
+  }
+}
+
+.site-title {
+  color: color("text");
+  font-size: font-size("lg");
+  font-weight: font-weight("bold");
+  letter-spacing: letter-spacing("snug");
+
+  @include mq("sm") {
+    font-size: font-size("xl");
+  }
+}
+
+.site-nav {
+  font-size: font-size("md");
+
+  ul {
+    @include plain-list;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: space(1 5);
+  }
+
+  a {
+    display: inline-block;
+    // At least 24px tall touch target (WCAG 2.2 target size).
+    padding-block: space(2);
+    color: color("text");
+    font-weight: font-weight("medium");
+
+    &:hover,
+    &[aria-current="page"] {
+      color: color("primary");
+    }
+
+    // Current page shown by more than color.
+    &[aria-current="page"] {
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 0.35em;
+    }
+  }
+}
+
+// == Site footer =============================================================
+
+.site-footer {
+  --focus-color: #{color("focus-on-dark")};
+
+  margin-top: space(16);
+  padding-block: space(8);
+  background: color("footer-bg");
+  color: color("footer-text");
+  font-size: font-size("sm");
+
+  a {
+    color: color("footer-link");
+    text-decoration: underline;
+  }
+}
+
+// == Card grid ===============================================================
+
+// Responsive card grid without breakpoints: as many columns of at least
+// $card-min-width as fit. min() keeps one full-width column on screens
+// narrower than that (the WP theme needed a media query for this).
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, #{$card-min-width}), 1fr));
+  gap: space(5);
+
+  > li {
+    display: flex; // cards in a row share one height
+  }
+}

@@ -92,6 +92,24 @@ services:
       - "${AUTH_PORT:-8001}:8000"
     command: sh -c "python manage.py migrate --noinput && exec python manage.py runserver 0.0.0.0:8000"
 
+  # Compiles frontend/scss -> main/static/css/main.css, then exits.
+  # Runs on every `docker compose up`; for the other commands see README.
+  #   docker compose run --rm assets npm run watch:css   (rebuild on save)
+  #   docker compose run --rm assets npm run check:css
+  assets:
+    image: node:22-alpine
+    user: "1000:1000"  # the image's "node" user; files it writes belong to the host user
+    environment:
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+      - ./main/static:/app/main/static
+      - ./main/templates:/app/main/templates:ro  # read by check:css
+    # Installs the locked dependencies, then runs the given npm command.
+    entrypoint: ["sh", "-c", "npm ci --no-audit --no-fund --loglevel=error && exec \"$$@\"", "--"]
+    command: ["npm", "run", "build:css"]
+
   # docker compose run --rm main-wp-import [--dry-run] [--prune]
   main-wp-import:
     <<: *main-base

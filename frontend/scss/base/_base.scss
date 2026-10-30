@@ -1,0 +1,139 @@
+// Element defaults: custom properties, reset, typography, focus and skip link.
+
+@use "../abstracts/tools" as *;
+
+// == Custom properties (runtime-themeable tokens) ============================
+
+:root {
+  @each $name, $value in $colors {
+    --color-#{$name}: #{$value};
+  }
+  @each $name, $value in $radii {
+    --radius-#{$name}: #{$value};
+  }
+  @each $name, $value in $shadows {
+    --shadow-#{$name}: #{$value};
+  }
+  --font-sans: #{$font-family-sans};
+  --max-width: #{$container-max-width};
+  --focus-color: #{color("focus")};
+
+  color-scheme: light;
+}
+
+// == Reset ===================================================================
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+// Lists marked role="list" are layout (card grids, nav, review lists).
+ul[role="list"] {
+  @include plain-list;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd {
+  margin: 0;
+}
+
+// == Typography ==============================================================
+
+html {
+  // Not a fixed 16px (as in the WP theme): respects the reader's own font size.
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: color("bg");
+  color: color("text");
+  font-family: var(--font-sans);
+  font-size: font-size("base");
+  line-height: line-height("base");
+}
+
+h1,
+h2,
+h3 {
+  line-height: line-height("tight");
+  letter-spacing: letter-spacing("snug");
+}
+
+a {
+  color: color("primary");
+  text-decoration: none;
+  text-underline-offset: 0.15em;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Long-form text (brand description, review bodies): paragraph spacing,
+// and links always underlined so they don't rely on color alone.
+.content,
+.review-body {
+  > * + * {
+    margin-top: space(4);
+  }
+
+  a {
+    text-decoration: underline;
+  }
+}
+
+// Secondary text: bylines, locations, review counts.
+.meta {
+  color: color("muted");
+  font-size: font-size("sm");
+}
+
+// == Focus and skip link =====================================================
+
+// One focus style for every focusable element, keyboard only (:focus-visible).
+:focus-visible {
+  @include focus-ring;
+}
+
+// <main tabindex="-1"> receives focus from the skip link; a ring around the
+// whole page would just be noise.
+[tabindex="-1"]:focus:not(:focus-visible),
+main:focus-visible {
+  outline: none;
+}
+
+// Off-screen until focused, then shown at the top left.
+.skip-link {
+  position: absolute;
+  top: space(2);
+  left: space(2);
+  z-index: 100;
+  padding: space(2 4);
+  background: color("surface");
+  color: color("primary-dark");
+  font-weight: font-weight("semibold");
+  border-radius: radius("sm");
+  box-shadow: shadow("md");
+  transform: translateY(calc(-100% - #{space(4)}));
+
+  &:focus-visible {
+    transform: none;
+  }
+}
