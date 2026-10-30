@@ -1,4 +1,4 @@
-"""Reads the real WordPress MariaDB. Opt-in, because it needs the WP stack:
+"""Reads the real WordPress MariaDB (the wp-db service). Opt-in, because it needs wp-db running:
 
     docker compose run --rm -e WP_INTEGRATION_TESTS=1 --entrypoint python \
         main-wp-import manage.py test catalog.tests.test_source_integration
@@ -60,3 +60,13 @@ class MariaDBSourceTests(TestCase):
         self.assertEqual(Review.objects.count(), 60)
         home = Brand.objects.with_rating_stats().get(slug="homeshield-pro")
         self.assertEqual((home.average_rating, home.wp_average_rating), (Decimal("3.08"), Decimal("3.90")))
+
+    def test_every_wordpress_permalink_renders_after_import(self):
+        """Each published WP brand and review keeps its URL: /brand/<slug>/, /review/<slug>/."""
+        run_import(self.source)
+        urls = [f"/brand/{b.slug}/" for b in self.snapshot.brands]
+        urls += [f"/review/{r.slug}/" for r in self.snapshot.reviews]
+        self.assertEqual(len(urls), 65)
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)

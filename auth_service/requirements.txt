@@ -1,8 +1,10 @@
 Django==5.2.18
 psycopg[binary]==3.3.6
-# Shared token/role code, from the repo's shared/ package (built into a local
-# wheelhouse by the Dockerfile). Bump this pin to adopt a new version.
-ca-shared==0.1.0
+# Shared code from the repo's shared/ package, built into /wheels by the Dockerfile.
+# A direct file reference, so pip never looks for "ca-shared" on PyPI (no
+# dependency confusion). The version is in the file name: to adopt a new
+# version, change it here; a mismatch with shared/ fails the build.
+ca-shared @ file:///wheels/ca_shared-0.1.0-py3-none-any.whl
 PyJWT==2.13.0
 cryptography==49.0.0
 # WP source import only (MariaDB, read-only)

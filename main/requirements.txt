@@ -5,8 +5,10 @@ PyMySQL==1.2.3
 # HTML sanitizing on import
 nh3==0.3.7
 djangorestframework==3.18.3
-# Shared token verification + DRF auth/permission classes, from the repo's
-# shared/ package (local wheelhouse, see Dockerfile). Bump to adopt a new version.
-ca-shared[drf]==0.1.0
+# Shared code from the repo's shared/ package, built into /wheels by the Dockerfile.
+# A direct file reference, so pip never looks for "ca-shared" on PyPI (no
+# dependency confusion). The version is in the file name: to adopt a new
+# version, change it here; a mismatch with shared/ fails the build.
+ca-shared[drf] @ file:///wheels/ca_shared-0.1.0-py3-none-any.whl
 PyJWT==2.13.0
 cryptography==49.0.0

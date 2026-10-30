@@ -94,7 +94,7 @@ CA_SHARED_AUTH = {
 # WordPress source database, read only by the import_wp command. Not a Django
 # DATABASES alias on purpose: the ORM, migrate and the running site never see it.
 WP_SOURCE = {
-    "host": os.environ.get("WP_DB_HOST", "db"),
+    "host": os.environ.get("WP_DB_HOST", "wp-db"),
     "port": int(os.environ.get("WP_DB_PORT", "3306")),
     "database": os.environ.get("WP_DB_NAME", "wp"),
     "user": os.environ.get("WP_DB_USER", "wp"),

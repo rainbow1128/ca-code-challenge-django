@@ -1,4 +1,4 @@
-"""Reads the real WordPress MariaDB. Opt-in, because it needs the WP stack:
+"""Reads the real WordPress MariaDB (the wp-db service). Opt-in, because it needs wp-db running:
 
     docker compose run --rm -e WP_INTEGRATION_TESTS=1 --entrypoint python \
         auth-wp-import manage.py test accounts.tests.test_source_integration

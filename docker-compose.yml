@@ -1,9 +1,13 @@
-# Django side of the WP -> Django migration.
+# WordPress -> Django migration: everything in one compose project.
 #
-# Normal services (main, auth and their databases) never touch WordPress.
-# The two *-wp-import services are one-off jobs: they are the only ones that
-# join the WordPress compose network, so `docker compose up` works whether or
-# not the WordPress stack is running.
+#   wp-db                 the original WordPress MariaDB, loaded from wordpress/db/dump.sql
+#   main, main-db         the Django site (pages, API) and its Postgres
+#   auth, auth-db         the auth service and its Postgres
+#   jwt-keys, assets      one-off jobs on `up`: token keys, CSS/JS build
+#   *-wp-import           one-off jobs: wp-db -> main / auth (run by ./setup.sh)
+#   wordpress             the original WP site, for comparison (profile "wordpress")
+#
+# The running Django services never read wp-db; only the import jobs do.
 name: ca-django
 
 x-main-base: &main-base
@@ -62,12 +66,10 @@ x-auth-base: &auth-base
     jwt-keys:
       condition: service_completed_successfully
 
-# Connection to the WordPress MariaDB, used only by the import jobs.
-# "db" is the WP compose service name on the WP network. No Django service may
-# be called "db", or the name would be ambiguous inside the import containers.
+# Connection to the WordPress MariaDB (the wp-db service), used only by the import jobs.
 x-wp-source-env: &wp-source-env
-  WP_DB_HOST: ${WP_DB_HOST:-db}
-  WP_DB_PORT: ${WP_DB_PORT:-3306}
+  WP_DB_HOST: wp-db
+  WP_DB_PORT: 3306
   WP_DB_NAME: ${WP_DB_NAME:-wp}
   WP_DB_USER: ${WP_DB_USER:-wp}
   WP_DB_PASSWORD: ${WP_DB_PASSWORD:-wp}
@@ -89,6 +91,63 @@ services:
       - jwt_private:/keys/private
       - jwt_public:/keys/public
     command: python manage.py generate_jwt_keys
+
+  # The original WordPress database, from the unchanged WordPress source in
+  # wordpress/. The dump is loaded on the first start (empty volume), ~20 s.
+  # No host port: only the import jobs (and the optional site) connect to it.
+  wp-db:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${WP_DB_NAME:-wp}
+      MYSQL_USER: ${WP_DB_USER:-wp}
+      MYSQL_PASSWORD: ${WP_DB_PASSWORD:-wp}
+    volumes:
+      - wp_db_data:/var/lib/mysql
+      - ./wordpress/db/dump.sql:/docker-entrypoint-initdb.d/01-dump.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # The original WordPress site at http://localhost:8080 (its URL is fixed in
+  # the dump), to compare with the Django pages. Optional:
+  #   docker compose --profile wordpress up -d wordpress
+  # wordpress/wp-content is mounted read-only at /src and copied into the
+  # container's own volume on start, so the container never changes repo files.
+  wordpress:
+    profiles: ["wordpress"]
+    image: wordpress:6.9-php8.3-apache
+    depends_on:
+      wp-db:
+        condition: service_healthy
+    ports:
+      - "${WP_PORT:-8080}:80"
+    environment:
+      WORDPRESS_DB_HOST: wp-db:3306
+      WORDPRESS_DB_NAME: ${WP_DB_NAME:-wp}
+      WORDPRESS_DB_USER: ${WP_DB_USER:-wp}
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD:-wp}
+      WORDPRESS_TABLE_PREFIX: ${WP_TABLE_PREFIX:-wp_}
+    volumes:
+      - wp_files:/var/www/html
+      - ./wordpress/wp-content:/src/wp-content:ro
+    entrypoint:
+      - bash
+      - -ec
+      - |
+        # WordPress core from the image (first start only).
+        [ -e /var/www/html/wp-includes/version.php ] || cp -a /usr/src/wordpress/. /var/www/html/
+        # The challenge's plugins, must-use plugins and theme, refreshed on every start.
+        wpc=/var/www/html/wp-content
+        mkdir -p "$$wpc/uploads"
+        rm -rf "$$wpc/plugins" "$$wpc/mu-plugins" "$$wpc/themes/consumer-reviews"
+        cp -r /src/wp-content/plugins /src/wp-content/mu-plugins "$$wpc/"
+        cp -r /src/wp-content/themes/consumer-reviews "$$wpc/themes/"
+        chown -R www-data:www-data "$$wpc"
+        # Writes wp-config.php from the WORDPRESS_* settings, then starts Apache.
+        exec docker-entrypoint.sh apache2-foreground
 
   main-db:
     image: postgres:17-alpine
@@ -156,7 +215,7 @@ services:
       dockerfile: Dockerfile.test
     image: ca-django/shared-tests:dev
 
-  # docker compose run --rm main-wp-import [--dry-run] [--prune]
+  # docker compose run --rm main-wp-import [--dry-run] [--prune]   (setup.sh runs it)
   main-wp-import:
     <<: *main-base
     profiles: ["import"]
@@ -164,11 +223,15 @@ services:
       - ./main:/app
     environment:
       <<: [*main-env, *wp-source-env]
-    networks: [default, wordpress]
+    depends_on:
+      main-db:
+        condition: service_healthy
+      wp-db:
+        condition: service_healthy
     entrypoint: ["sh", "-c", "python manage.py migrate --noinput && exec python manage.py import_wp \"$$@\"", "--"]
     command: []
 
-  # docker compose run --rm auth-wp-import [--dry-run] [--prune]
+  # docker compose run --rm auth-wp-import [--dry-run] [--prune]   (setup.sh runs it)
   auth-wp-import:
     <<: *auth-base
     profiles: ["import"]
@@ -177,16 +240,17 @@ services:
     environment:
       <<: [*auth-env, *wp-source-env]
       AUTH_IMPORT_PASSWORD: ${AUTH_IMPORT_PASSWORD:-}
-    networks: [default, wordpress]
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      wp-db:
+        condition: service_healthy
     entrypoint: ["sh", "-c", "python manage.py migrate --noinput && exec python manage.py import_wp_users \"$$@\"", "--"]
     command: []
 
-networks:
-  wordpress:
-    external: true
-    name: ${WP_NETWORK_NAME:-ca-code-challenge-wordpress_default}
-
 volumes:
+  wp_db_data:
+  wp_files:
   main_db_data:
   auth_db_data:
   jwt_private:
